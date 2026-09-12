@@ -27,7 +27,7 @@ export default class DcaOrderManager {
     }
 
     const levels = this.dcaCalculator.calculateLevels(initialPrice);
-    const rules = await this.symbolRulesService.getRules(symbol);
+    const rules = await this.symbolRulesService.get(symbol);
 
     return levels.map((level) => {
       const quantity = this.quantityCalculator.calculateBuyQuantity(
@@ -36,9 +36,9 @@ export default class DcaOrderManager {
       );
 
       return this.dcaOrderRepository.create({
-        cycleId,
-        level: level.dcaLevel,
+        tradingCycleId: cycleId,
         orderNumber: level.orderNumber,
+        orderType: "LIMIT_MAKER",
         targetPrice: level.targetPrice,
         quantity,
         status: "PENDING",
@@ -54,11 +54,11 @@ export default class DcaOrderManager {
       return [];
     }
 
-    const market = await this.marketPriceService.getMarketPrice(symbol);
+    const market = await this.marketPriceService.get(symbol);
     const results = [];
 
     for (const dcaOrder of pendingOrders) {
-      if (market.price > dcaOrder.targetPrice) {
+      if (market.price > dcaOrder.target_price) {
         results.push({
           dcaOrderId: dcaOrder.id,
           status: "WAITING",
@@ -71,7 +71,7 @@ export default class DcaOrderManager {
         const order = await this.makerOrderEngine.placeBuy({
           symbol,
           quantity: dcaOrder.quantity,
-          price: dcaOrder.targetPrice,
+          price: dcaOrder.target_price,
           bestAsk: market.askPrice,
         });
 
@@ -91,7 +91,7 @@ export default class DcaOrderManager {
             exchangeOrderId,
             side: "BUY",
             orderType: "LIMIT_MAKER",
-            price: dcaOrder.targetPrice,
+            price: dcaOrder.target_price,
             quantity: dcaOrder.quantity,
             status: "NEW",
           });

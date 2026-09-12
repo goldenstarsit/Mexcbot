@@ -30,9 +30,9 @@ export default class TradingCycleExecutionService {
       throw new Error("Symbol is required");
     }
 
-    const market = await this.marketPriceService.getMarketPrice(symbol);
+    const market = await this.marketPriceService.get(symbol);
 
-    const rules = await this.symbolRulesService.getRules(symbol);
+    const rules = await this.symbolRulesService.get(symbol);
 
     const quantity = this.quantityCalculator.calculateBuyQuantity(
       market.bidPrice,
@@ -47,13 +47,13 @@ export default class TradingCycleExecutionService {
     });
 
     const exchangeOrder = await this.exchangeOrderRepository.create({
-      cycleId,
+      tradingCycleId: cycleId,
       symbol,
       exchangeOrderId: String(
         order.orderId ?? order.order_id ?? order.id ?? "",
       ),
       side: "BUY",
-      type: "LIMIT_MAKER",
+      orderType: "LIMIT_MAKER",
       price: market.bidPrice,
       quantity,
       status: "NEW",
@@ -90,9 +90,9 @@ export default class TradingCycleExecutionService {
 
     for (const dca of protection.dcaOrders) {
       const record = await this.dcaOrderRepository.create({
-        cycleId,
-        level: dca.dcaLevel,
+        tradingCycleId: cycleId,
         orderNumber: dca.orderNumber,
+        orderType: "LIMIT_MAKER",
         targetPrice: dca.targetPrice,
         quantity: dca.quantity,
         status: "PENDING",

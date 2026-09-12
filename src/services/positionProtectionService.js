@@ -41,7 +41,7 @@ export default class PositionProtectionService {
     }]);
 
     const dcaLevels = this.dcaCalculator.calculateLevels(initialPrice);
-    const rules = await this.symbolRulesService.getRules(symbol);
+    const rules = await this.symbolRulesService.get(symbol);
 
     const dcaOrders = dcaLevels.map((level) => ({
       orderNumber: level.orderNumber,

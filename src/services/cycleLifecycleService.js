@@ -41,7 +41,7 @@ export default class CycleLifecycleService {
       throw new Error("No position available to sell");
     }
 
-    const market = await this.marketPriceService.getMarketPrice(symbol);
+    const market = await this.marketPriceService.get(symbol);
 
     const sellPrice =
       reason === "TAKE_PROFIT"
@@ -58,17 +58,16 @@ export default class CycleLifecycleService {
     });
 
     const exchangeOrder = await this.exchangeOrderRepository.create({
-      cycleId,
+      tradingCycleId: cycleId,
       symbol,
       exchangeOrderId: String(
         order.orderId ?? order.order_id ?? order.id ?? "",
       ),
       side: "SELL",
-      type: "LIMIT_MAKER",
+      orderType: "LIMIT_MAKER",
       price: sellPrice,
       quantity: position.totalQuantity,
       status: "NEW",
-      reason,
     });
 
     await this.tradingCycleRepository.updateStatus(

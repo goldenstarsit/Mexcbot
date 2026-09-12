@@ -13,7 +13,7 @@ export default class AllSymbolsStartupService {
   }
 
   async getValidMarket(symbol) {
-    const market = await this.marketPriceService.getMarketPrice(symbol);
+    const market = await this.marketPriceService.get(symbol);
 
     const values = [
       market?.price,
