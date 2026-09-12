@@ -6,3 +6,4 @@ console.log(
   db.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").get().count,
   "tables"
 );
+import "./002_fill_processing.js";

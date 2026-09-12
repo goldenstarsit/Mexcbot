@@ -50,7 +50,11 @@ export default class ExchangeOrderRepository {
 
   findByExchangeOrderId(exchangeOrderId) {
     return db
-      .prepare("SELECT * FROM exchange_orders WHERE exchange_order_id = ?")
+      .prepare(`
+        SELECT *
+        FROM exchange_orders
+        WHERE exchange_order_id = ?
+      `)
       .get(exchangeOrderId);
   }
 
@@ -81,8 +85,55 @@ export default class ExchangeOrderRepository {
         SELECT *
         FROM exchange_orders
         WHERE status IN ('NEW', 'ORDER_PLACED', 'PARTIALLY_FILLED')
+           OR (
+             status = 'FILLED'
+             AND fill_processing_status IN ('PENDING', 'FAILED', 'PROCESSING')
+           )
         ORDER BY id ASC
       `)
       .all();
+  }
+
+  markFillProcessing(id) {
+    db.prepare(`
+      UPDATE exchange_orders
+      SET
+        fill_processing_status = 'PROCESSING',
+        fill_processing_attempts = fill_processing_attempts + 1,
+        fill_processing_error = NULL,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(id);
+
+    return this.findById(id);
+  }
+
+  markFillProcessed(id) {
+    db.prepare(`
+      UPDATE exchange_orders
+      SET
+        fill_processing_status = 'PROCESSED',
+        fill_processing_error = NULL,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(id);
+
+    return this.findById(id);
+  }
+
+  markFillProcessingFailed(id, error) {
+    db.prepare(`
+      UPDATE exchange_orders
+      SET
+        fill_processing_status = 'FAILED',
+        fill_processing_error = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      String(error?.message ?? error ?? "Unknown fill processing error"),
+      id,
+    );
+
+    return this.findById(id);
   }
 }

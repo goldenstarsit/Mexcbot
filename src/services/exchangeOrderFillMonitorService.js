@@ -9,7 +9,8 @@ export default class ExchangeOrderFillMonitorService {
     this.mexcClient = mexcClient;
     this.exchangeOrderRepository = exchangeOrderRepository;
     this.fillRepository = fillRepository;
-    this.tradingCycleExecutionService = tradingCycleExecutionService;
+    this.tradingCycleExecutionService =
+      tradingCycleExecutionService;
     this.cycleLifecycleService = cycleLifecycleService;
   }
 
@@ -72,16 +73,156 @@ export default class ExchangeOrderFillMonitorService {
     );
   }
 
+  async processBusinessFill({
+    exchangeOrder,
+    symbol,
+    fill,
+  }) {
+    if (exchangeOrder.side === "BUY") {
+      if (this.isInitialBuy(exchangeOrder)) {
+        const result =
+          await this.tradingCycleExecutionService.processInitialFill({
+            cycleId: exchangeOrder.trading_cycle_id,
+            symbol,
+            fill,
+          });
+
+        return {
+          action: "INITIAL_FILL_PROCESSED",
+          result,
+        };
+      }
+
+      const cycleFills =
+        this.fillRepository.findByCycleId(
+          exchangeOrder.trading_cycle_id,
+        );
+
+      const result =
+        await this.tradingCycleExecutionService.processDcaFill({
+          cycleId: exchangeOrder.trading_cycle_id,
+          fills: cycleFills,
+        });
+
+      return {
+        action: "DCA_FILL_PROCESSED",
+        result,
+      };
+    }
+
+    if (exchangeOrder.side === "SELL") {
+      const result =
+        await this.cycleLifecycleService.completeExitAndStartNewCycle({
+          cycleId: exchangeOrder.trading_cycle_id,
+          symbol,
+          fill,
+        });
+
+      return {
+        action: "EXIT_FILL_PROCESSED",
+        result,
+      };
+    }
+
+    throw new Error(
+      `Unsupported order side: ${exchangeOrder.side}`,
+    );
+  }
+
+  async processExistingFill({
+    exchangeOrder,
+    symbol,
+    fill,
+    checked,
+  }) {
+    this.exchangeOrderRepository.markFillProcessing(
+      exchangeOrder.id,
+    );
+
+    try {
+      const business = await this.processBusinessFill({
+        exchangeOrder,
+        symbol,
+        fill,
+      });
+
+      const updatedOrder =
+        this.exchangeOrderRepository.markFillProcessed(
+          exchangeOrder.id,
+        );
+
+      return {
+        ...checked,
+        processed: true,
+        fill,
+        ...business,
+        processingStatus:
+          updatedOrder.fill_processing_status,
+        processingAttempts:
+          updatedOrder.fill_processing_attempts,
+      };
+    } catch (error) {
+      const failedOrder =
+        this.exchangeOrderRepository.markFillProcessingFailed(
+          exchangeOrder.id,
+          error,
+        );
+
+      throw Object.assign(error, {
+        fillProcessingStatus:
+          failedOrder.fill_processing_status,
+        fillProcessingAttempts:
+          failedOrder.fill_processing_attempts,
+      });
+    }
+  }
+
   async processOrder({ exchangeOrder, symbol }) {
     if (!exchangeOrder) {
       throw new Error("Exchange order is required");
     }
 
-    if (String(exchangeOrder.status).toUpperCase() === "FILLED") {
+    if (!symbol) {
+      throw new Error("Symbol is required");
+    }
+
+    if (
+      String(exchangeOrder.fill_processing_status).toUpperCase() ===
+      "PROCESSED"
+    ) {
       return {
         processed: false,
-        reason: "ALREADY_FILLED",
+        reason: "FILL_ALREADY_PROCESSED",
       };
+    }
+
+    if (
+      String(exchangeOrder.status).toUpperCase() === "FILLED" &&
+      ["PENDING", "FAILED"].includes(
+        String(exchangeOrder.fill_processing_status).toUpperCase(),
+      )
+    ) {
+      const existingFills =
+        this.fillRepository.findByExchangeOrderId(
+          exchangeOrder.id,
+        );
+
+      if (existingFills.length === 0) {
+        throw new Error(
+          "FILLED exchange order has no recorded fill",
+        );
+      }
+
+      return this.processExistingFill({
+        exchangeOrder,
+        symbol,
+        fill: existingFills[0],
+        checked: {
+          exchangeOrder,
+          exchangeOrderId: exchangeOrder.exchange_order_id,
+          status: "FILLED",
+        },
+      });
     }
 
     const checked = await this.checkOrder({
@@ -146,12 +287,17 @@ export default class ExchangeOrderFillMonitorService {
         "FILLED",
       );
 
-      return {
-        ...checked,
-        processed: false,
-        reason: "FILL_ALREADY_RECORDED",
+      return this.processExistingFill({
+        exchangeOrder: this.exchangeOrderRepository.findById(
+          exchangeOrder.id,
+        ),
+        symbol,
         fill: existingFills[0],
-      };
+        checked: {
+          ...checked,
+          status: "FILLED",
+        },
+      });
     }
 
     const fill = this.fillRepository.create({
@@ -171,63 +317,16 @@ export default class ExchangeOrderFillMonitorService {
       "FILLED",
     );
 
-    if (exchangeOrder.side === "BUY") {
-      if (this.isInitialBuy(exchangeOrder)) {
-        const result =
-          await this.tradingCycleExecutionService.processInitialFill({
-            cycleId: exchangeOrder.trading_cycle_id,
-            symbol,
-            fill,
-          });
-
-        return {
-          ...checked,
-          processed: true,
-          fill,
-          action: "INITIAL_FILL_PROCESSED",
-          result,
-        };
-      }
-
-      const cycleFills =
-        this.fillRepository.findByCycleId(
-          exchangeOrder.trading_cycle_id,
-        );
-
-      const result =
-        await this.tradingCycleExecutionService.processDcaFill({
-          cycleId: exchangeOrder.trading_cycle_id,
-          fills: cycleFills,
-        });
-
-      return {
+    return this.processExistingFill({
+      exchangeOrder: this.exchangeOrderRepository.findById(
+        exchangeOrder.id,
+      ),
+      symbol,
+      fill,
+      checked: {
         ...checked,
-        processed: true,
-        fill,
-        action: "DCA_FILL_PROCESSED",
-        result,
-      };
-    }
-
-    if (exchangeOrder.side === "SELL") {
-      const result =
-        await this.cycleLifecycleService.completeExitAndStartNewCycle({
-          cycleId: exchangeOrder.trading_cycle_id,
-          symbol,
-          fill,
-        });
-
-      return {
-        ...checked,
-        processed: true,
-        fill,
-        action: "EXIT_FILL_PROCESSED",
-        result,
-      };
-    }
-
-    throw new Error(
-      `Unsupported order side: ${exchangeOrder.side}`,
-    );
+        status: "FILLED",
+      },
+    });
   }
 }
