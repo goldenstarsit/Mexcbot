@@ -106,13 +106,6 @@ export default class CycleLifecycleService {
       throw new Error("Exit fill price must be greater than 0");
     }
 
-    await this.fillRepository.create({
-      symbol,
-      side: "SELL",
-      quantity,
-      price,
-    });
-
     await this.tradingCycleRepository.updateStatus(
       cycleId,
       "CLOSED",
