@@ -103,7 +103,7 @@ const exchangeOrderFillMonitorService =
 const pollingRunner = new ExchangeOrderPollingRunner({
   exchangeOrderRepository,
   exchangeOrderFillMonitorService,
-  intervalMs: 2000,
+  intervalMs: 5000,
 });
 
 const allSymbolsStartupService =
@@ -151,7 +151,7 @@ if (!hasApiCredentials) {
 
     pollingRunner.start();
 
-    console.log("[OrderPolling] Started: 2000ms");
+    console.log("[OrderPolling] Started: 5000ms");
   } catch (error) {
     console.error("[Startup] Failed:", error.message);
   }
