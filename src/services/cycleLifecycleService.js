@@ -6,6 +6,8 @@ export default class CycleLifecycleService {
     positionCalculator,
     marketPriceService,
     makerOrderEngine,
+    quantityCalculator,
+    symbolRulesService,
     triggerInitialOrder,
   }) {
     this.tradingCycleRepository = tradingCycleRepository;
@@ -14,6 +16,8 @@ export default class CycleLifecycleService {
     this.positionCalculator = positionCalculator;
     this.marketPriceService = marketPriceService;
     this.makerOrderEngine = makerOrderEngine;
+    this.quantityCalculator = quantityCalculator;
+    this.symbolRulesService = symbolRulesService;
     this.triggerInitialOrder = triggerInitialOrder;
   }
 
@@ -42,6 +46,13 @@ export default class CycleLifecycleService {
     }
 
     const market = await this.marketPriceService.get(symbol);
+    const rules = await this.symbolRulesService.get(symbol);
+
+    const sellQuantity =
+      this.quantityCalculator.calculateSellQuantity(
+        position.totalQuantity,
+        rules,
+      );
 
     const sellPrice =
       reason === "TAKE_PROFIT"
@@ -52,7 +63,7 @@ export default class CycleLifecycleService {
 
     const order = await this.makerOrderEngine.placeSell({
       symbol,
-      quantity: position.totalQuantity,
+      quantity: sellQuantity,
       price: sellPrice,
       bestBid,
     });
@@ -66,7 +77,7 @@ export default class CycleLifecycleService {
       side: "SELL",
       orderType: "LIMIT_MAKER",
       price: sellPrice,
-      quantity: position.totalQuantity,
+      quantity: sellQuantity,
       status: "NEW",
     });
 
@@ -79,7 +90,7 @@ export default class CycleLifecycleService {
       cycleId,
       symbol,
       reason,
-      quantity: position.totalQuantity,
+      quantity: sellQuantity,
       price: sellPrice,
       exchangeOrder,
       newCycleStarted: false,

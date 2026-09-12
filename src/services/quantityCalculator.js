@@ -37,6 +37,33 @@ export default class QuantityCalculator {
     return this.normalize(quantity, stepSize);
   }
 
+  calculateSellQuantity(quantity, rules) {
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      throw new Error("Quantity must be greater than 0");
+    }
+
+    if (!rules || !Number.isFinite(rules.minQty) || rules.minQty <= 0) {
+      throw new Error("Valid minQty is required");
+    }
+
+    const stepSize = Number(rules.stepSize ?? rules.minQty);
+
+    if (!Number.isFinite(stepSize) || stepSize <= 0) {
+      throw new Error("Valid stepSize is required");
+    }
+
+    const steps = Math.floor(quantity / stepSize + 1e-8);
+    const normalizedQuantity = steps * stepSize;
+
+    const result = this.normalize(normalizedQuantity, stepSize);
+
+    if (result < rules.minQty) {
+      throw new Error("Normalized SELL quantity is below minQty");
+    }
+
+    return result;
+  }
+
   normalize(quantity, stepSize) {
     const stepString = stepSize.toString();
     const exponentMatch = stepString.match(/e-([0-9]+)$/i);
