@@ -6,6 +6,7 @@ export default class DcaOrderManager {
     makerOrderEngine,
     marketPriceService,
     symbolRulesService,
+    exchangeOrderRepository,
   }) {
     this.dcaOrderRepository = dcaOrderRepository;
     this.dcaCalculator = dcaCalculator;
@@ -13,6 +14,7 @@ export default class DcaOrderManager {
     this.makerOrderEngine = makerOrderEngine;
     this.marketPriceService = marketPriceService;
     this.symbolRulesService = symbolRulesService;
+    this.exchangeOrderRepository = exchangeOrderRepository;
   }
 
   async createDcaOrders({ cycleId, symbol, initialPrice }) {
@@ -73,6 +75,27 @@ export default class DcaOrderManager {
           bestAsk: market.askPrice,
         });
 
+        const exchangeOrderId = String(
+          order.orderId ?? order.order_id ?? order.id ?? "",
+        );
+
+        if (!exchangeOrderId) {
+          throw new Error("MEXC exchange order ID is missing");
+        }
+
+        const exchangeOrder =
+          await this.exchangeOrderRepository.create({
+            tradingCycleId: cycleId,
+            dcaOrderId: dcaOrder.id,
+            symbol,
+            exchangeOrderId,
+            side: "BUY",
+            orderType: "LIMIT_MAKER",
+            price: dcaOrder.targetPrice,
+            quantity: dcaOrder.quantity,
+            status: "NEW",
+          });
+
         await this.dcaOrderRepository.updateStatus(
           dcaOrder.id,
           "ORDER_PLACED",
@@ -81,7 +104,7 @@ export default class DcaOrderManager {
         results.push({
           dcaOrderId: dcaOrder.id,
           status: "ORDER_PLACED",
-          exchangeOrder: order,
+          exchangeOrder,
         });
       } catch (error) {
         results.push({
