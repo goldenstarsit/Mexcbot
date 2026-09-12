@@ -8,6 +8,7 @@ export default class TradingCycleExecutionService {
     symbolRulesService,
     quantityCalculator,
     makerOrderEngine,
+    duplicateProtectionService,
     positionProtectionService,
   }) {
     this.tradingCycleRepository = tradingCycleRepository;
@@ -18,6 +19,7 @@ export default class TradingCycleExecutionService {
     this.symbolRulesService = symbolRulesService;
     this.quantityCalculator = quantityCalculator;
     this.makerOrderEngine = makerOrderEngine;
+    this.duplicateProtectionService = duplicateProtectionService;
     this.positionProtectionService = positionProtectionService;
   }
 
@@ -39,25 +41,23 @@ export default class TradingCycleExecutionService {
       rules,
     );
 
-    const order = await this.makerOrderEngine.placeBuy({
-      symbol,
-      quantity,
-      price: market.bidPrice,
-      bestAsk: market.askPrice,
-    });
+    const clientOrderId =
+      this.duplicateProtectionService.createClientOrderId({
+        cycleId,
+        kind: "initial",
+      });
 
-    const exchangeOrder = await this.exchangeOrderRepository.create({
-      tradingCycleId: cycleId,
-      symbol,
-      exchangeOrderId: String(
-        order.orderId ?? order.order_id ?? order.id ?? "",
-      ),
-      side: "BUY",
-      orderType: "LIMIT_MAKER",
-      price: market.bidPrice,
-      quantity,
-      status: "NEW",
-    });
+    const placement =
+      await this.duplicateProtectionService.placeBuy({
+        tradingCycleId: cycleId,
+        symbol,
+        quantity,
+        price: market.bidPrice,
+        bestAsk: market.askPrice,
+        clientOrderId,
+      });
+
+    const exchangeOrder = placement.exchangeOrder;
 
     return {
       cycleId,

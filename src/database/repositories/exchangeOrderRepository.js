@@ -6,6 +6,7 @@ export default class ExchangeOrderRepository {
     dcaOrderId = null,
     symbol,
     exchangeOrderId,
+    clientOrderId = null,
     side,
     orderType,
     price,
@@ -19,6 +20,7 @@ export default class ExchangeOrderRepository {
           dca_order_id,
           symbol,
           exchange_order_id,
+          client_order_id,
           side,
           order_type,
           price,
@@ -32,6 +34,7 @@ export default class ExchangeOrderRepository {
         dcaOrderId,
         symbol,
         exchangeOrderId,
+        clientOrderId,
         side,
         orderType,
         price,
@@ -56,6 +59,26 @@ export default class ExchangeOrderRepository {
         WHERE exchange_order_id = ?
       `)
       .get(exchangeOrderId);
+  }
+
+  findByClientOrderId(clientOrderId) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM exchange_orders
+        WHERE client_order_id = ?
+      `)
+      .get(clientOrderId);
+  }
+
+  findByClientOrderId(clientOrderId) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM exchange_orders
+        WHERE client_order_id = ?
+      `)
+      .get(clientOrderId);
   }
 
   findByCycleId(tradingCycleId) {

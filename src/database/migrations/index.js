@@ -7,3 +7,4 @@ console.log(
   "tables"
 );
 import "./002_fill_processing.js";
+import "./003_order_idempotency.js";

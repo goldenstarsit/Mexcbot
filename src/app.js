@@ -18,6 +18,7 @@ import FillRepository from "./database/repositories/fillRepository.js";
 import DcaCalculator from "./services/dcaCalculator.js";
 import QuantityCalculator from "./services/quantityCalculator.js";
 import MakerOrderEngine from "./services/makerOrderEngine.js";
+import DuplicateProtectionService from "./services/duplicateProtectionService.js";
 import DcaOrderManager from "./services/dcaOrderManager.js";
 import PositionCalculator from "./services/positionCalculator.js";
 import PositionProtectionService from "./services/positionProtectionService.js";
@@ -46,6 +47,13 @@ const makerOrderEngine = new MakerOrderEngine(
   tradingConfig,
 );
 
+const duplicateProtectionService =
+  new DuplicateProtectionService({
+    mexcClient,
+    exchangeOrderRepository,
+    makerOrderEngine,
+  });
+
 const dcaOrderManager = new DcaOrderManager({
   dcaOrderRepository,
   dcaCalculator,
@@ -54,6 +62,7 @@ const dcaOrderManager = new DcaOrderManager({
   marketPriceService,
   symbolRulesService,
   exchangeOrderRepository,
+  duplicateProtectionService,
 });
 
 const positionCalculator = new PositionCalculator();
@@ -77,6 +86,7 @@ const tradingCycleExecutionService =
     symbolRulesService,
     quantityCalculator,
     makerOrderEngine,
+    duplicateProtectionService,
     positionProtectionService,
   });
 
@@ -89,6 +99,7 @@ const cycleLifecycleService = new CycleLifecycleService({
   makerOrderEngine,
   quantityCalculator,
   symbolRulesService,
+  duplicateProtectionService,
   triggerInitialOrder: (params) =>
     tradingCycleExecutionService.triggerInitialOrder(params),
 });

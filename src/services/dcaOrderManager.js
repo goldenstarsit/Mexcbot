@@ -7,6 +7,7 @@ export default class DcaOrderManager {
     marketPriceService,
     symbolRulesService,
     exchangeOrderRepository,
+    duplicateProtectionService,
   }) {
     this.dcaOrderRepository = dcaOrderRepository;
     this.dcaCalculator = dcaCalculator;
@@ -15,6 +16,7 @@ export default class DcaOrderManager {
     this.marketPriceService = marketPriceService;
     this.symbolRulesService = symbolRulesService;
     this.exchangeOrderRepository = exchangeOrderRepository;
+    this.duplicateProtectionService = duplicateProtectionService;
   }
 
   async createDcaOrders({ cycleId, symbol, initialPrice }) {
@@ -68,33 +70,25 @@ export default class DcaOrderManager {
       }
 
       try {
-        const order = await this.makerOrderEngine.placeBuy({
-          symbol,
-          quantity: dcaOrder.quantity,
-          price: dcaOrder.target_price,
-          bestAsk: market.askPrice,
-        });
+        const clientOrderId =
+          this.duplicateProtectionService.createClientOrderId({
+            cycleId,
+            kind: "dca",
+            id: dcaOrder.id,
+          });
 
-        const exchangeOrderId = String(
-          order.orderId ?? order.order_id ?? order.id ?? "",
-        );
-
-        if (!exchangeOrderId) {
-          throw new Error("MEXC exchange order ID is missing");
-        }
-
-        const exchangeOrder =
-          await this.exchangeOrderRepository.create({
+        const placement =
+          await this.duplicateProtectionService.placeBuy({
             tradingCycleId: cycleId,
             dcaOrderId: dcaOrder.id,
             symbol,
-            exchangeOrderId,
-            side: "BUY",
-            orderType: "LIMIT_MAKER",
-            price: dcaOrder.target_price,
             quantity: dcaOrder.quantity,
-            status: "NEW",
+            price: dcaOrder.target_price,
+            bestAsk: market.askPrice,
+            clientOrderId,
           });
+
+        const exchangeOrder = placement.exchangeOrder;
 
         await this.dcaOrderRepository.updateStatus(
           dcaOrder.id,

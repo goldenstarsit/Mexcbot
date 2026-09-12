@@ -8,6 +8,7 @@ export default class CycleLifecycleService {
     makerOrderEngine,
     quantityCalculator,
     symbolRulesService,
+    duplicateProtectionService,
     triggerInitialOrder,
   }) {
     this.tradingCycleRepository = tradingCycleRepository;
@@ -18,6 +19,7 @@ export default class CycleLifecycleService {
     this.makerOrderEngine = makerOrderEngine;
     this.quantityCalculator = quantityCalculator;
     this.symbolRulesService = symbolRulesService;
+    this.duplicateProtectionService = duplicateProtectionService;
     this.triggerInitialOrder = triggerInitialOrder;
   }
 
@@ -61,25 +63,24 @@ export default class CycleLifecycleService {
 
     const bestBid = market.bidPrice;
 
-    const order = await this.makerOrderEngine.placeSell({
-      symbol,
-      quantity: sellQuantity,
-      price: sellPrice,
-      bestBid,
-    });
+    const clientOrderId =
+      this.duplicateProtectionService.createClientOrderId({
+        cycleId,
+        kind: reason === "TAKE_PROFIT" ? "tp" : "sl",
+      });
 
-    const exchangeOrder = await this.exchangeOrderRepository.create({
-      tradingCycleId: cycleId,
-      symbol,
-      exchangeOrderId: String(
-        order.orderId ?? order.order_id ?? order.id ?? "",
-      ),
-      side: "SELL",
-      orderType: "LIMIT_MAKER",
-      price: sellPrice,
-      quantity: sellQuantity,
-      status: "NEW",
-    });
+    const placement =
+      await this.duplicateProtectionService.placeSell({
+        tradingCycleId: cycleId,
+        symbol,
+        quantity: sellQuantity,
+        price: sellPrice,
+        bestBid,
+        clientOrderId,
+        reason,
+      });
+
+    const exchangeOrder = placement.exchangeOrder;
 
     await this.tradingCycleRepository.updateStatus(
       cycleId,
