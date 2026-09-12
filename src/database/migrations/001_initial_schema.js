@@ -4,6 +4,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS trading_cycles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     symbol TEXT NOT NULL,
+    cycle_number INTEGER NOT NULL,
     status TEXT NOT NULL DEFAULT 'OPEN',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     closed_at TEXT
@@ -54,6 +55,9 @@ db.exec(`
     filled_at TEXT NOT NULL,
     FOREIGN KEY (exchange_order_id) REFERENCES exchange_orders(id) ON DELETE CASCADE
   );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_trading_cycles_symbol_cycle_number
+    ON trading_cycles(symbol, cycle_number);
 
   CREATE INDEX IF NOT EXISTS idx_trading_cycles_symbol_status
     ON trading_cycles(symbol, status);

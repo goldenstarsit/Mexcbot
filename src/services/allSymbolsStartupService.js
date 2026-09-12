@@ -84,6 +84,7 @@ export default class AllSymbolsStartupService {
         results.push({
           symbol,
           cycleId: existingCycle.id,
+          cycleNumber: existingCycle.cycle_number,
           status: "ALREADY_OPEN",
         });
 

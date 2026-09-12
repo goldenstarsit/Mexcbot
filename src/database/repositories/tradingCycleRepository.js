@@ -1,13 +1,33 @@
 import db from "../connection.js";
 
 export default class TradingCycleRepository {
-  create({ symbol, status = "OPEN" }) {
+  create({ symbol, status = "OPEN", cycleNumber = null }) {
+    if (!symbol) {
+      throw new Error("Symbol is required");
+    }
+
+    const nextCycleNumber =
+      cycleNumber ??
+      (
+        db
+          .prepare(`
+            SELECT COALESCE(MAX(cycle_number), 0) + 1 AS next_cycle_number
+            FROM trading_cycles
+            WHERE symbol = ?
+          `)
+          .get(symbol)?.next_cycle_number ?? 1
+      );
+
     const result = db
       .prepare(`
-        INSERT INTO trading_cycles (symbol, status)
-        VALUES (?, ?)
+        INSERT INTO trading_cycles (
+          symbol,
+          cycle_number,
+          status
+        )
+        VALUES (?, ?, ?)
       `)
-      .run(symbol, status);
+      .run(symbol, nextCycleNumber, status);
 
     return this.findById(result.lastInsertRowid);
   }
@@ -24,10 +44,34 @@ export default class TradingCycleRepository {
         SELECT *
         FROM trading_cycles
         WHERE symbol = ? AND status = 'OPEN'
-        ORDER BY id DESC
+        ORDER BY cycle_number DESC
         LIMIT 1
       `)
       .get(symbol);
+  }
+
+  findLatestBySymbol(symbol) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM trading_cycles
+        WHERE symbol = ?
+        ORDER BY cycle_number DESC
+        LIMIT 1
+      `)
+      .get(symbol);
+  }
+
+  getNextCycleNumber(symbol) {
+    return (
+      db
+        .prepare(`
+          SELECT COALESCE(MAX(cycle_number), 0) + 1 AS next_cycle_number
+          FROM trading_cycles
+          WHERE symbol = ?
+        `)
+        .get(symbol)?.next_cycle_number ?? 1
+    );
   }
 
   updateStatus(id, status) {
@@ -50,7 +94,7 @@ export default class TradingCycleRepository {
         SELECT *
         FROM trading_cycles
         WHERE symbol = ?
-        ORDER BY id DESC
+        ORDER BY cycle_number DESC
       `)
       .all(symbol);
   }

@@ -156,6 +156,7 @@ export default class CycleLifecycleService {
     return {
       previousCycleId,
       cycleId: cycle.id,
+      cycleNumber: cycle.cycle_number,
       symbol,
       status: "OPEN",
       initialOrderReady: true,
