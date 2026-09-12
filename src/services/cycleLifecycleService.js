@@ -41,13 +41,63 @@ export default class CycleLifecycleService {
       throw new Error("Exit reason must be TAKE_PROFIT or STOP_LOSS");
     }
 
-    const position = this.positionCalculator.calculate(fills);
+    const existingExit =
+      this.exchangeOrderRepository.findActiveSellByCycleId(cycleId);
 
-    if (position.totalQuantity <= 0) {
-      throw new Error("No position available to sell");
+    if (existingExit) {
+      return {
+        cycleId,
+        symbol,
+        reason,
+        quantity: Number(existingExit.quantity),
+        price: Number(existingExit.price),
+        exchangeOrder: existingExit,
+        newCycleStarted: false,
+        reused: true,
+      };
     }
 
-    const market = await this.marketPriceService.get(symbol);
+    const reservation =
+      this.tradingCycleRepository.reserveExit(cycleId);
+
+    if (!reservation.reserved) {
+      const cycle = reservation.cycle;
+
+      if (cycle?.status === "EXIT_PENDING") {
+        const pendingExit =
+          this.exchangeOrderRepository.findActiveSellByCycleId(cycleId);
+
+        if (pendingExit) {
+          return {
+            cycleId,
+            symbol,
+            reason,
+            quantity: Number(pendingExit.quantity),
+            price: Number(pendingExit.price),
+            exchangeOrder: pendingExit,
+            newCycleStarted: false,
+            reused: true,
+          };
+        }
+
+        throw new Error(
+          `Exit already pending for cycle ${cycleId}`,
+        );
+      }
+
+      throw new Error(
+        `Cannot trigger exit for cycle ${cycleId}: status is ${cycle?.status ?? "UNKNOWN"}`,
+      );
+    }
+
+    try {
+      const position = this.positionCalculator.calculate(fills);
+
+      if (position.totalQuantity <= 0) {
+        throw new Error("No position available to sell");
+      }
+
+      const market = await this.marketPriceService.get(symbol);
     const rules = await this.symbolRulesService.get(symbol);
 
     const sellQuantity =
@@ -82,20 +132,24 @@ export default class CycleLifecycleService {
 
     const exchangeOrder = placement.exchangeOrder;
 
-    await this.tradingCycleRepository.updateStatus(
-      cycleId,
-      "EXIT_PENDING",
-    );
+      return {
+        cycleId,
+        symbol,
+        reason,
+        quantity: sellQuantity,
+        price: sellPrice,
+        exchangeOrder,
+        newCycleStarted: false,
+        reused: placement.reused,
+      };
+    } catch (error) {
+      await this.tradingCycleRepository.updateStatus(
+        cycleId,
+        "OPEN",
+      );
 
-    return {
-      cycleId,
-      symbol,
-      reason,
-      quantity: sellQuantity,
-      price: sellPrice,
-      exchangeOrder,
-      newCycleStarted: false,
-    };
+      throw error;
+    }
   }
 
   async processExitFill({

@@ -71,14 +71,18 @@ export default class ExchangeOrderRepository {
       .get(clientOrderId);
   }
 
-  findByClientOrderId(clientOrderId) {
+  findActiveSellByCycleId(tradingCycleId) {
     return db
       .prepare(`
         SELECT *
         FROM exchange_orders
-        WHERE client_order_id = ?
+        WHERE trading_cycle_id = ?
+          AND side = 'SELL'
+          AND status IN ('NEW', 'ORDER_PLACED', 'PARTIALLY_FILLED')
+        ORDER BY id ASC
+        LIMIT 1
       `)
-      .get(clientOrderId);
+      .get(tradingCycleId);
   }
 
   findByCycleId(tradingCycleId) {

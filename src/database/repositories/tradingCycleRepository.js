@@ -88,6 +88,22 @@ export default class TradingCycleRepository {
     return this.findById(id);
   }
 
+  reserveExit(id) {
+    const result = db
+      .prepare(`
+        UPDATE trading_cycles
+        SET status = 'EXIT_PENDING'
+        WHERE id = ?
+          AND status = 'OPEN'
+      `)
+      .run(id);
+
+    return {
+      reserved: result.changes === 1,
+      cycle: this.findById(id),
+    };
+  }
+
   listBySymbol(symbol) {
     return db
       .prepare(`
