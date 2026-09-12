@@ -38,10 +38,15 @@ export default class QuantityCalculator {
   }
 
   normalize(quantity, stepSize) {
-    const decimals = Math.max(
-      0,
-      (stepSize.toString().split(".")[1] || "").length,
-    );
+    const stepString = stepSize.toString();
+    const exponentMatch = stepString.match(/e-([0-9]+)$/i);
+
+    const decimals = exponentMatch
+      ? Number(exponentMatch[1])
+      : Math.max(
+          0,
+          (stepString.split(".")[1] || "").length,
+        );
 
     return Number(quantity.toFixed(decimals));
   }
