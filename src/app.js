@@ -87,6 +87,8 @@ const cycleLifecycleService = new CycleLifecycleService({
   positionCalculator,
   marketPriceService,
   makerOrderEngine,
+  quantityCalculator,
+  symbolRulesService,
   triggerInitialOrder: (params) =>
     tradingCycleExecutionService.triggerInitialOrder(params),
 });
