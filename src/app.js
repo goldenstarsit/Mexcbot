@@ -2,6 +2,7 @@ import "dotenv/config";
 import tradingConfig from "./config/trading.config.js";
 import { validateTradingConfig } from "./config/validateTradingConfig.js";
 import db from "./database/connection.js";
+import "./database/migrations/index.js";
 
 validateTradingConfig(tradingConfig);
 
