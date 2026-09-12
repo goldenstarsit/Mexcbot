@@ -2,7 +2,7 @@ export default class ExchangeOrderPollingRunner {
   constructor({
     exchangeOrderRepository,
     exchangeOrderFillMonitorService,
-    intervalMs = 2000,
+    intervalMs = 5000,
   }) {
     if (!exchangeOrderRepository) {
       throw new Error("Exchange order repository is required");
