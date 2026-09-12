@@ -6,6 +6,7 @@ export default class CycleLifecycleService {
     positionCalculator,
     marketPriceService,
     makerOrderEngine,
+    triggerInitialOrder,
   }) {
     this.tradingCycleRepository = tradingCycleRepository;
     this.exchangeOrderRepository = exchangeOrderRepository;
@@ -13,6 +14,7 @@ export default class CycleLifecycleService {
     this.positionCalculator = positionCalculator;
     this.marketPriceService = marketPriceService;
     this.makerOrderEngine = makerOrderEngine;
+    this.triggerInitialOrder = triggerInitialOrder;
   }
 
   async triggerExit({
@@ -138,6 +140,10 @@ export default class CycleLifecycleService {
       throw new Error("Symbol is required");
     }
 
+    if (typeof this.triggerInitialOrder !== "function") {
+      throw new Error("Initial order trigger is not configured");
+    }
+
     const openCycle =
       await this.tradingCycleRepository.findOpenBySymbol(symbol);
 
@@ -179,9 +185,16 @@ export default class CycleLifecycleService {
       symbol,
     });
 
+    const initialOrder = await this.triggerInitialOrder({
+      cycleId: cycle.cycleId,
+      symbol,
+    });
+
     return {
       exit,
       cycle,
+      initialOrder,
+      newCycleStarted: true,
     };
   }
 }
