@@ -38,6 +38,17 @@ export default class TradingCycleRepository {
       .get(id);
   }
 
+  findByStatus(status) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM trading_cycles
+        WHERE status = ?
+        ORDER BY id ASC
+      `)
+      .all(status);
+  }
+
   findOpenBySymbol(symbol) {
     return db
       .prepare(`

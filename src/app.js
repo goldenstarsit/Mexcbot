@@ -27,6 +27,7 @@ import CycleLifecycleService from "./services/cycleLifecycleService.js";
 import AllSymbolsStartupService from "./services/allSymbolsStartupService.js";
 import ExchangeOrderFillMonitorService from "./services/exchangeOrderFillMonitorService.js";
 import ExchangeOrderPollingRunner from "./services/exchangeOrderPollingRunner.js";
+import ExitOrderRecoveryService from "./services/exitOrderRecoveryService.js";
 
 validateTradingConfig(tradingConfig);
 
@@ -119,6 +120,13 @@ const pollingRunner = new ExchangeOrderPollingRunner({
   intervalMs: 5000,
 });
 
+const exitOrderRecoveryService =
+  new ExitOrderRecoveryService({
+    tradingCycleRepository,
+    exchangeOrderRepository,
+    duplicateProtectionService,
+  });
+
 const allSymbolsStartupService =
   new AllSymbolsStartupService({
     tradingConfig,
@@ -154,6 +162,14 @@ if (!hasApiCredentials) {
   console.log("Live trading: ENABLED");
 
   try {
+    const recovery =
+      await exitOrderRecoveryService.recover();
+
+    console.log(
+      "[ExitRecovery]",
+      JSON.stringify(recovery, null, 2),
+    );
+
     const startup =
       await allSymbolsStartupService.startInitialCycles();
 
