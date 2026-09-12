@@ -12,7 +12,9 @@ export default class MexcSymbolRules {
     const response = await this.mexcClient.getExchangeInfo(symbol);
     const info = Array.isArray(response.symbols)
       ? response.symbols.find((item) => item.symbol === symbol)
-      : response.symbol;
+      : response.symbol && typeof response.symbol === "object"
+        ? response.symbol
+        : response;
 
     if (!info) {
       throw new Error(`MEXC symbol rules not found: ${symbol}`);
