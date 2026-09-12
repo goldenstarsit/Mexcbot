@@ -74,4 +74,15 @@ export default class ExchangeOrderRepository {
 
     return this.findById(id);
   }
+
+  findActive() {
+    return db
+      .prepare(`
+        SELECT *
+        FROM exchange_orders
+        WHERE status IN ('NEW', 'ORDER_PLACED', 'PARTIALLY_FILLED')
+        ORDER BY id ASC
+      `)
+      .all();
+  }
 }

@@ -69,4 +69,17 @@ export default class FillRepository {
       `)
       .all(symbol);
   }
+
+  findByCycleId(tradingCycleId) {
+    return db
+      .prepare(`
+        SELECT f.*
+        FROM fills f
+        INNER JOIN exchange_orders eo
+          ON eo.id = f.exchange_order_id
+        WHERE eo.trading_cycle_id = ?
+        ORDER BY f.id ASC
+      `)
+      .all(tradingCycleId);
+  }
 }

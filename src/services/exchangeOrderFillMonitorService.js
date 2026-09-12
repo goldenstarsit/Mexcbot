@@ -13,10 +13,7 @@ export default class ExchangeOrderFillMonitorService {
     this.cycleLifecycleService = cycleLifecycleService;
   }
 
-  async checkOrder({
-    exchangeOrder,
-    symbol,
-  }) {
+  async checkOrder({ exchangeOrder, symbol }) {
     if (!exchangeOrder) {
       throw new Error("Exchange order is required");
     }
@@ -26,9 +23,8 @@ export default class ExchangeOrderFillMonitorService {
     }
 
     const exchangeOrderId = String(
+      exchangeOrder.exchange_order_id ??
       exchangeOrder.exchangeOrderId ??
-      exchangeOrder.orderId ??
-      exchangeOrder.order_id ??
       "",
     );
 
@@ -42,8 +38,9 @@ export default class ExchangeOrderFillMonitorService {
     });
 
     const status = String(
-      result.status ??
-      result.orderStatus ??
+      result?.status ??
+      result?.orderStatus ??
+      result?.data?.status ??
       "",
     ).toUpperCase();
 
@@ -55,14 +52,58 @@ export default class ExchangeOrderFillMonitorService {
     };
   }
 
-  async processOrder({
-    exchangeOrder,
-    symbol,
-  }) {
+  isInitialBuy(exchangeOrder) {
+    if (exchangeOrder.side !== "BUY") {
+      return false;
+    }
+
+    const cycleOrders =
+      this.exchangeOrderRepository.findByCycleId(
+        exchangeOrder.trading_cycle_id,
+      );
+
+    const buyOrders = cycleOrders
+      .filter((order) => order.side === "BUY")
+      .sort((a, b) => Number(a.id) - Number(b.id));
+
+    return (
+      buyOrders.length > 0 &&
+      Number(buyOrders[0].id) === Number(exchangeOrder.id)
+    );
+  }
+
+  async processOrder({ exchangeOrder, symbol }) {
+    if (!exchangeOrder) {
+      throw new Error("Exchange order is required");
+    }
+
+    if (String(exchangeOrder.status).toUpperCase() === "FILLED") {
+      return {
+        processed: false,
+        reason: "ALREADY_FILLED",
+      };
+    }
+
     const checked = await this.checkOrder({
       exchangeOrder,
       symbol,
     });
+
+    if (
+      ["CANCELED", "CANCELLED", "REJECTED", "EXPIRED"].includes(
+        checked.status,
+      )
+    ) {
+      this.exchangeOrderRepository.updateStatus(
+        exchangeOrder.id,
+        checked.status,
+      );
+
+      return {
+        ...checked,
+        processed: false,
+      };
+    }
 
     if (checked.status !== "FILLED") {
       return {
@@ -74,15 +115,15 @@ export default class ExchangeOrderFillMonitorService {
     const response = checked.response;
 
     const quantity = Number(
-      response.executedQty ??
-      response.cummulativeQuantity ??
-      response.origQty ??
+      response?.executedQty ??
+      response?.cummulativeQuantity ??
+      response?.origQty ??
       exchangeOrder.quantity,
     );
 
     const price = Number(
-      response.avgPrice ??
-      response.price ??
+      response?.avgPrice ??
+      response?.price ??
       exchangeOrder.price,
     );
 
@@ -94,34 +135,49 @@ export default class ExchangeOrderFillMonitorService {
       throw new Error("Filled price is invalid");
     }
 
-    const fill = await this.fillRepository.create({
+    const existingFills =
+      this.fillRepository.findByExchangeOrderId(
+        exchangeOrder.id,
+      );
+
+    if (existingFills.length > 0) {
+      this.exchangeOrderRepository.updateStatus(
+        exchangeOrder.id,
+        "FILLED",
+      );
+
+      return {
+        ...checked,
+        processed: false,
+        reason: "FILL_ALREADY_RECORDED",
+        fill: existingFills[0],
+      };
+    }
+
+    const fill = this.fillRepository.create({
       exchangeOrderId: exchangeOrder.id,
       symbol,
       side: exchangeOrder.side,
       quantity,
       price,
+      filledAt:
+        response?.time ??
+        response?.transactTime ??
+        new Date().toISOString(),
     });
 
-    await this.exchangeOrderRepository.updateStatus(
+    this.exchangeOrderRepository.updateStatus(
       exchangeOrder.id,
       "FILLED",
     );
 
     if (exchangeOrder.side === "BUY") {
-      const isInitialOrder =
-        exchangeOrder.orderNumber === 1 ||
-        exchangeOrder.isInitial === true ||
-        exchangeOrder.role === "INITIAL";
-
-      if (isInitialOrder) {
+      if (this.isInitialBuy(exchangeOrder)) {
         const result =
           await this.tradingCycleExecutionService.processInitialFill({
-            cycleId: exchangeOrder.cycleId,
+            cycleId: exchangeOrder.trading_cycle_id,
             symbol,
-            fill: {
-              price,
-              quantity,
-            },
+            fill,
           });
 
         return {
@@ -133,13 +189,15 @@ export default class ExchangeOrderFillMonitorService {
         };
       }
 
-      const existingFills =
-        await this.fillRepository.findBySymbol(symbol);
+      const cycleFills =
+        this.fillRepository.findByCycleId(
+          exchangeOrder.trading_cycle_id,
+        );
 
       const result =
-        this.tradingCycleExecutionService.processDcaFill({
-          cycleId: exchangeOrder.cycleId,
-          fills: existingFills,
+        await this.tradingCycleExecutionService.processDcaFill({
+          cycleId: exchangeOrder.trading_cycle_id,
+          fills: cycleFills,
         });
 
       return {
@@ -154,13 +212,9 @@ export default class ExchangeOrderFillMonitorService {
     if (exchangeOrder.side === "SELL") {
       const result =
         await this.cycleLifecycleService.completeExitAndStartNewCycle({
-          cycleId: exchangeOrder.cycleId,
+          cycleId: exchangeOrder.trading_cycle_id,
           symbol,
-          fill: {
-            side: "SELL",
-            price,
-            quantity,
-          },
+          fill,
         });
 
       return {
@@ -172,6 +226,8 @@ export default class ExchangeOrderFillMonitorService {
       };
     }
 
-    throw new Error(`Unsupported order side: ${exchangeOrder.side}`);
+    throw new Error(
+      `Unsupported order side: ${exchangeOrder.side}`,
+    );
   }
 }
