@@ -108,6 +108,7 @@ export default class DuplicateProtectionService {
             quantity,
           ),
           status: String(response.status ?? "NEW").toUpperCase(),
+          placementResponse: response,
         });
 
       return {
@@ -148,6 +149,7 @@ export default class DuplicateProtectionService {
         price,
         quantity,
         status: "NEW",
+        placementResponse: order,
       });
 
     return {
@@ -201,6 +203,7 @@ export default class DuplicateProtectionService {
             quantity,
           ),
           status: String(response.status ?? "NEW").toUpperCase(),
+          placementResponse: response,
         });
 
       return {
@@ -241,6 +244,7 @@ export default class DuplicateProtectionService {
         price,
         quantity,
         status: "NEW",
+        placementResponse: order,
       });
 
     return {

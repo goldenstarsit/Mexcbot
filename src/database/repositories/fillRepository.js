@@ -11,6 +11,7 @@ export default class FillRepository {
     commission = 0,
     commissionAsset = null,
     filledAt,
+    exchangeResponse = null,
   }) {
     const result = db
       .prepare(`
@@ -23,9 +24,10 @@ export default class FillRepository {
           quantity,
           commission,
           commission_asset,
-          filled_at
+          filled_at,
+          exchange_response_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .run(
         exchangeOrderId,
@@ -37,6 +39,9 @@ export default class FillRepository {
         commission,
         commissionAsset,
         filledAt,
+        exchangeResponse === null
+          ? null
+          : JSON.stringify(exchangeResponse),
       );
 
     return this.findById(result.lastInsertRowid);

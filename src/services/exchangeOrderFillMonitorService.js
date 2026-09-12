@@ -230,6 +230,11 @@ export default class ExchangeOrderFillMonitorService {
       symbol,
     });
 
+    this.exchangeOrderRepository.updateFinalResponse(
+      exchangeOrder.id,
+      checked.response,
+    );
+
     if (
       ["CANCELED", "CANCELLED", "REJECTED", "EXPIRED"].includes(
         checked.status,
@@ -310,6 +315,7 @@ export default class ExchangeOrderFillMonitorService {
         response?.time ??
         response?.transactTime ??
         new Date().toISOString(),
+      exchangeResponse: response,
     });
 
     this.exchangeOrderRepository.updateStatus(

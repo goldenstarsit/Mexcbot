@@ -12,6 +12,8 @@ export default class ExchangeOrderRepository {
     price,
     quantity,
     status,
+    placementResponse = null,
+    finalResponse = null,
   }) {
     const result = db
       .prepare(`
@@ -25,9 +27,11 @@ export default class ExchangeOrderRepository {
           order_type,
           price,
           quantity,
-          status
+          status,
+          placement_response_json,
+          final_response_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .run(
         tradingCycleId,
@@ -40,9 +44,43 @@ export default class ExchangeOrderRepository {
         price,
         quantity,
         status,
+        placementResponse === null
+          ? null
+          : JSON.stringify(placementResponse),
+        finalResponse === null
+          ? null
+          : JSON.stringify(finalResponse),
       );
 
     return this.findById(result.lastInsertRowid);
+  }
+
+  updatePlacementResponse(id, response) {
+    db.prepare(`
+      UPDATE exchange_orders
+      SET placement_response_json = ?,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      response === null ? null : JSON.stringify(response),
+      id,
+    );
+
+    return this.findById(id);
+  }
+
+  updateFinalResponse(id, response) {
+    db.prepare(`
+      UPDATE exchange_orders
+      SET final_response_json = ?,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      response === null ? null : JSON.stringify(response),
+      id,
+    );
+
+    return this.findById(id);
   }
 
   findById(id) {

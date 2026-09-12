@@ -211,6 +211,7 @@ export default class ExitOrderRecoveryService {
         price,
         quantity,
         status: localStatus,
+        placementResponse: response,
       });
 
     if (
