@@ -1,3 +1,5 @@
+import tradingConfig from "../config/trading.config.js";
+
 export default class ExchangeOrderFillMonitorService {
   constructor({
     mexcClient,
@@ -186,13 +188,46 @@ export default class ExchangeOrderFillMonitorService {
       throw new Error("Symbol is required");
     }
 
-    if (
-      String(exchangeOrder.fill_processing_status).toUpperCase() ===
-      "PROCESSED"
-    ) {
+    const fillProcessingStatus = String(
+      exchangeOrder.fill_processing_status ?? "PENDING",
+    ).toUpperCase();
+
+    if (fillProcessingStatus === "PROCESSED") {
       return {
         processed: false,
         reason: "FILL_ALREADY_PROCESSED",
+      };
+    }
+
+    const fillProcessingAttempts = Number(
+      exchangeOrder.fill_processing_attempts ?? 0,
+    );
+
+    if (
+      fillProcessingStatus === "EXHAUSTED" ||
+      (
+        fillProcessingAttempts >=
+        this.maxFillProcessingAttempts &&
+        ["PENDING", "FAILED", "PROCESSING"].includes(
+          fillProcessingStatus,
+        )
+      )
+    ) {
+      const exhaustedOrder =
+        this.exchangeOrderRepository.markFillProcessingExhausted(
+          exchangeOrder.id,
+          `Maximum fill processing attempts reached: ${this.maxFillProcessingAttempts}`,
+        );
+
+      return {
+        processed: false,
+        reason: "FILL_PROCESSING_EXHAUSTED",
+        processingStatus:
+          exhaustedOrder.fill_processing_status,
+        processingAttempts:
+          exhaustedOrder.fill_processing_attempts,
+        maxAttempts:
+          this.maxFillProcessingAttempts,
       };
     }
 

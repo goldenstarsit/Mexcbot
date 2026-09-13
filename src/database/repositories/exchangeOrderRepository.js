@@ -271,6 +271,7 @@ export default class ExchangeOrderRepository {
            OR (
              status = 'FILLED'
              AND fill_processing_status IN ('PENDING', 'FAILED', 'PROCESSING')
+             AND fill_processing_status != 'EXHAUSTED'
            )
         ORDER BY id ASC
       `)
@@ -287,6 +288,26 @@ export default class ExchangeOrderRepository {
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(id);
+
+    return this.findById(id);
+  }
+
+  markFillProcessingExhausted(id, error) {
+    db.prepare(`
+      UPDATE exchange_orders
+      SET
+        fill_processing_status = 'EXHAUSTED',
+        fill_processing_error = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      String(
+        error?.message ??
+        error ??
+        "Fill processing attempts exhausted",
+      ),
+      id,
+    );
 
     return this.findById(id);
   }

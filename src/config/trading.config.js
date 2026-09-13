@@ -28,6 +28,10 @@ const tradingConfig = {
   terminalRecovery: {
     maxAttempts: 5,
   },
+
+  fillProcessing: {
+    maxAttempts: 5,
+  },
 };
 
 export default tradingConfig;
