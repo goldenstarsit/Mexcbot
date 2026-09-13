@@ -29,6 +29,7 @@ import ExchangeOrderFillMonitorService from "./services/exchangeOrderFillMonitor
 import ExchangeOrderPollingRunner from "./services/exchangeOrderPollingRunner.js";
 import ExitOrderRecoveryService from "./services/exitOrderRecoveryService.js";
 import ExchangeReconciliationService from "./services/exchangeReconciliationService.js";
+import ExchangeReconciliationRunner from "./services/exchangeReconciliationRunner.js";
 
 validateTradingConfig(tradingConfig);
 
@@ -142,6 +143,12 @@ const exchangeReconciliationService =
     exchangeOrderRepository,
   });
 
+const exchangeReconciliationRunner =
+  new ExchangeReconciliationRunner({
+    exchangeReconciliationService,
+    intervalMs: 60000,
+  });
+
 console.log("MEXCBOT");
 console.log("Environment:", process.env.NODE_ENV);
 console.log("MEXC Base URL:", process.env.MEXC_BASE_URL);
@@ -194,8 +201,10 @@ if (!hasApiCredentials) {
     );
 
     pollingRunner.start();
+    exchangeReconciliationRunner.start();
 
     console.log("[OrderPolling] Started: 5000ms");
+    console.log("[Reconciliation] Runner started: 60000ms");
   } catch (error) {
     console.error("[Startup] Failed:", error.message);
   }
@@ -204,6 +213,7 @@ if (!hasApiCredentials) {
 function shutdown(signal) {
   console.log(`[Shutdown] ${signal}`);
   pollingRunner.stop();
+  exchangeReconciliationRunner.stop();
 
   if (db.open) {
     db.close();
