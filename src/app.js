@@ -35,6 +35,8 @@ import TerminalOrderRecoveryService from "./services/terminalOrderRecoveryServic
 import TerminalOrderRecoveryRunner from "./services/terminalOrderRecoveryRunner.js";
 import OrderIntentRecoveryService from "./services/orderIntentRecoveryService.js";
 import OrderIntentRecoveryRunner from "./services/orderIntentRecoveryRunner.js";
+import ExchangeOrphanOrderRecoveryService from "./services/exchangeOrphanOrderRecoveryService.js";
+import ExchangeOrphanOrderRecoveryRunner from "./services/exchangeOrphanOrderRecoveryRunner.js";
 
 validateTradingConfig(tradingConfig);
 
@@ -185,6 +187,21 @@ const orderIntentRecoveryRunner =
     intervalMs: 60000,
   });
 
+const exchangeOrphanOrderRecoveryService =
+  new ExchangeOrphanOrderRecoveryService({
+    mexcClient,
+    tradingConfig,
+    exchangeOrderRepository,
+    tradingCycleRepository,
+    dcaOrderRepository,
+  });
+
+const exchangeOrphanOrderRecoveryRunner =
+  new ExchangeOrphanOrderRecoveryRunner({
+    exchangeOrphanOrderRecoveryService,
+    intervalMs: 60000,
+  });
+
 const exchangeReconciliationRunner =
   new ExchangeReconciliationRunner({
     exchangeReconciliationService,
@@ -250,6 +267,14 @@ if (!hasApiCredentials) {
       JSON.stringify(reconciliation, null, 2),
     );
 
+    const orphanRecovery =
+      await exchangeOrphanOrderRecoveryService.recover();
+
+    console.log(
+      "[OrphanRecovery]",
+      JSON.stringify(orphanRecovery, null, 2),
+    );
+
     const startup =
       await allSymbolsStartupService.startInitialCycles();
 
@@ -262,10 +287,12 @@ if (!hasApiCredentials) {
     exchangeReconciliationRunner.start();
     terminalOrderRecoveryRunner.start();
     orderIntentRecoveryRunner.start();
+    exchangeOrphanOrderRecoveryRunner.start();
 
     console.log("[OrderPolling] Started: 5000ms");
     console.log("[Reconciliation] Runner started: 60000ms");
     console.log("[OrderIntentRecovery] Runner started: 60000ms");
+    console.log("[OrphanRecovery] Runner started: 60000ms");
   } catch (error) {
     console.error("[Startup] Failed:", error.message);
   }
@@ -277,6 +304,7 @@ function shutdown(signal) {
   exchangeReconciliationRunner.stop();
   terminalOrderRecoveryRunner.stop();
   orderIntentRecoveryRunner.stop();
+  exchangeOrphanOrderRecoveryRunner.stop();
 
   if (db.open) {
     db.close();
