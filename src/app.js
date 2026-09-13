@@ -13,6 +13,7 @@ import MexcSymbolRules from "./exchange/mexcSymbolRules.js";
 import TradingCycleRepository from "./database/repositories/tradingCycleRepository.js";
 import DcaOrderRepository from "./database/repositories/dcaOrderRepository.js";
 import ExchangeOrderRepository from "./database/repositories/exchangeOrderRepository.js";
+import OrderIntentRepository from "./database/repositories/OrderIntentRepository.js";
 import FillRepository from "./database/repositories/fillRepository.js";
 
 import DcaCalculator from "./services/dcaCalculator.js";
@@ -42,6 +43,7 @@ const symbolRulesService = new MexcSymbolRules(mexcClient);
 const tradingCycleRepository = new TradingCycleRepository();
 const dcaOrderRepository = new DcaOrderRepository();
 const exchangeOrderRepository = new ExchangeOrderRepository();
+const orderIntentRepository = new OrderIntentRepository();
 const fillRepository = new FillRepository();
 
 const dcaCalculator = new DcaCalculator(tradingConfig);
@@ -57,6 +59,7 @@ const duplicateProtectionService =
     mexcClient,
     exchangeOrderRepository,
     makerOrderEngine,
+    orderIntentRepository,
   });
 
 const dcaOrderManager = new DcaOrderManager({

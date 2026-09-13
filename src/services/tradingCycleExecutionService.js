@@ -59,7 +59,7 @@ export default class TradingCycleExecutionService {
         quantity,
         price: market.bidPrice,
         bestAsk: market.askPrice,
-        clientOrderId,
+        clientOrderId: resolvedClientOrderId,
       });
 
     const exchangeOrder = placement.exchangeOrder;

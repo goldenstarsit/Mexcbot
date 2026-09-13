@@ -11,3 +11,5 @@ console.log(
 );
 
 import "./005_terminal_recovery.js";
+
+import "./006_order_intents.js";
