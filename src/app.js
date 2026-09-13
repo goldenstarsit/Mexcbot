@@ -33,6 +33,8 @@ import ExchangeReconciliationService from "./services/exchangeReconciliationServ
 import ExchangeReconciliationRunner from "./services/exchangeReconciliationRunner.js";
 import TerminalOrderRecoveryService from "./services/terminalOrderRecoveryService.js";
 import TerminalOrderRecoveryRunner from "./services/terminalOrderRecoveryRunner.js";
+import OrderIntentRecoveryService from "./services/orderIntentRecoveryService.js";
+import OrderIntentRecoveryRunner from "./services/orderIntentRecoveryRunner.js";
 
 validateTradingConfig(tradingConfig);
 
@@ -170,6 +172,19 @@ const terminalOrderRecoveryRunner =
     intervalMs: 60000,
   });
 
+const orderIntentRecoveryService =
+  new OrderIntentRecoveryService({
+    orderIntentRepository,
+    exchangeOrderRepository,
+    mexcClient,
+  });
+
+const orderIntentRecoveryRunner =
+  new OrderIntentRecoveryRunner({
+    orderIntentRecoveryService,
+    intervalMs: 60000,
+  });
+
 const exchangeReconciliationRunner =
   new ExchangeReconciliationRunner({
     exchangeReconciliationService,
@@ -209,9 +224,17 @@ if (!hasApiCredentials) {
     const terminalRecovery =
       await terminalOrderRecoveryService.recover();
 
+    const orderIntentRecovery =
+      await orderIntentRecoveryService.recover();
+
     console.log(
       "[TerminalRecovery]",
       JSON.stringify(terminalRecovery, null, 2),
+    );
+
+    console.log(
+      "[OrderIntentRecovery]",
+      JSON.stringify(orderIntentRecovery, null, 2),
     );
 
     console.log(
@@ -238,9 +261,11 @@ if (!hasApiCredentials) {
     pollingRunner.start();
     exchangeReconciliationRunner.start();
     terminalOrderRecoveryRunner.start();
+    orderIntentRecoveryRunner.start();
 
     console.log("[OrderPolling] Started: 5000ms");
     console.log("[Reconciliation] Runner started: 60000ms");
+    console.log("[OrderIntentRecovery] Runner started: 60000ms");
   } catch (error) {
     console.error("[Startup] Failed:", error.message);
   }
@@ -251,6 +276,7 @@ function shutdown(signal) {
   pollingRunner.stop();
   exchangeReconciliationRunner.stop();
   terminalOrderRecoveryRunner.stop();
+  orderIntentRecoveryRunner.stop();
 
   if (db.open) {
     db.close();
