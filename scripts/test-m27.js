@@ -1,6 +1,7 @@
 import ExchangeReconciliationService from "../src/services/exchangeReconciliationService.js";
 
 const savedResponses = [];
+let fillRecoveryCalls = 0;
 
 const repository = {
   findActive() {
@@ -29,6 +30,20 @@ const repository = {
   updateFinalResponse(id, response) {
     savedResponses.push({ id, response });
   },
+
+  findById(id) {
+    if (id === 2) {
+      return {
+        id: 2,
+        exchange_order_id: "order-filled",
+        symbol: "ETHUSDT",
+        status: "FILLED",
+        fill_processing_status: "PROCESSED",
+      };
+    }
+
+    return null;
+  },
 };
 
 const mexcClient = {
@@ -55,9 +70,28 @@ const mexcClient = {
   },
 };
 
+const exchangeOrderFillMonitorService = {
+  async processOrder({ exchangeOrder, symbol }) {
+    if (
+      exchangeOrder.id !== 2 ||
+      symbol !== "ETHUSDT"
+    ) {
+      throw new Error("Unexpected fill recovery input");
+    }
+
+    fillRecoveryCalls += 1;
+
+    return {
+      processed: true,
+      action: "INITIAL_FILL_PROCESSED",
+    };
+  },
+};
+
 const service = new ExchangeReconciliationService({
   mexcClient,
   exchangeOrderRepository: repository,
+  exchangeOrderFillMonitorService,
 });
 
 const result = await service.reconcile();
@@ -70,14 +104,26 @@ if (result.consistent !== 1) {
   throw new Error(`Expected consistent=1, got ${result.consistent}`);
 }
 
-if (result.discrepancies !== 1) {
+if (result.discrepancies !== 0) {
   throw new Error(
-    `Expected discrepancies=1, got ${result.discrepancies}`,
+    `Expected discrepancies=0 after fill recovery, got ${result.discrepancies}`,
+  );
+}
+
+if (result.recoveredFills !== 1) {
+  throw new Error(
+    `Expected recoveredFills=1, got ${result.recoveredFills}`,
   );
 }
 
 if (result.failed !== 1) {
   throw new Error(`Expected failed=1, got ${result.failed}`);
+}
+
+if (fillRecoveryCalls !== 1) {
+  throw new Error(
+    `Expected fillRecoveryCalls=1, got ${fillRecoveryCalls}`,
+  );
 }
 
 if (savedResponses.length !== 2) {
@@ -95,6 +141,8 @@ console.log({
   checked: result.checked,
   consistent: result.consistent,
   discrepancies: result.discrepancies,
+  recoveredFills: result.recoveredFills,
+  fillRecoveryCalls,
   failed: result.failed,
   rawResponseSaved: savedResponses.length === 2,
 });
