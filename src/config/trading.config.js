@@ -24,6 +24,10 @@ const tradingConfig = {
     type: "LIMIT_MAKER",
     makerOnly: true,
   },
+
+  terminalRecovery: {
+    maxAttempts: 5,
+  },
 };
 
 export default tradingConfig;

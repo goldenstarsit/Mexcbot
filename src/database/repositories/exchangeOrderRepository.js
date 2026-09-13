@@ -200,6 +200,22 @@ export default class ExchangeOrderRepository {
     return this.findById(id);
   }
 
+  markRecoveryExhausted(id, error) {
+    db.prepare(`
+      UPDATE exchange_orders
+      SET
+        recovery_status = 'EXHAUSTED',
+        recovery_error = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      String(error?.message ?? error ?? "Recovery attempts exhausted"),
+      id,
+    );
+
+    return this.findById(id);
+  }
+
   markRecoveryProcessed(id) {
     db.prepare(`
       UPDATE exchange_orders

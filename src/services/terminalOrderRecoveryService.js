@@ -1,3 +1,5 @@
+import tradingConfig from "../config/trading.config.js";
+
 export default class TerminalOrderRecoveryService {
   constructor({
     tradingCycleRepository,
@@ -19,6 +21,15 @@ export default class TerminalOrderRecoveryService {
       duplicateProtectionService;
     this.dcaOrderManager = dcaOrderManager;
     this.fillRepository = fillRepository;
+
+    const configuredMaxAttempts =
+      tradingConfig?.terminalRecovery?.maxAttempts;
+
+    this.maxAttempts =
+      Number.isInteger(configuredMaxAttempts) &&
+      configuredMaxAttempts > 0
+        ? configuredMaxAttempts
+        : 5;
   }
 
   isTerminal(status) {
@@ -54,6 +65,24 @@ export default class TerminalOrderRecoveryService {
       return {
         status: "ALREADY_RECOVERED",
         exchangeOrderId: exchangeOrder.exchange_order_id,
+      };
+    }
+
+    const recoveryAttempts = Number(
+      exchangeOrder.recovery_attempts ?? 0,
+    );
+
+    if (recoveryAttempts >= this.maxAttempts) {
+      this.exchangeOrderRepository.markRecoveryExhausted(
+        exchangeOrder.id,
+        `Maximum terminal recovery attempts reached: ${this.maxAttempts}`,
+      );
+
+      return {
+        status: "RECOVERY_EXHAUSTED",
+        exchangeOrderId: exchangeOrder.exchange_order_id,
+        attempts: recoveryAttempts,
+        maxAttempts: this.maxAttempts,
       };
     }
 
@@ -356,6 +385,10 @@ export default class TerminalOrderRecoveryService {
       failed: results.filter(
         (r) => r.status === "RECOVERY_FAILED",
       ).length,
+      exhausted: results.filter(
+        (r) => r.status === "RECOVERY_EXHAUSTED",
+      ).length,
+      maxAttempts: this.maxAttempts,
       results,
     };
   }
