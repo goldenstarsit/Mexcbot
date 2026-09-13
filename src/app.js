@@ -144,6 +144,9 @@ const exchangeReconciliationService =
     mexcClient,
     exchangeOrderRepository,
     exchangeOrderFillMonitorService,
+    tradingCycleRepository,
+    dcaOrderRepository,
+    fillRepository,
   });
 
 const terminalOrderRecoveryService =
