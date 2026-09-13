@@ -6,6 +6,8 @@ export default class TerminalOrderRecoveryService {
     tradingCycleExecutionService,
     cycleLifecycleService,
     duplicateProtectionService,
+    dcaOrderManager,
+    fillRepository,
   }) {
     this.tradingCycleRepository = tradingCycleRepository;
     this.dcaOrderRepository = dcaOrderRepository;
@@ -15,6 +17,8 @@ export default class TerminalOrderRecoveryService {
     this.cycleLifecycleService = cycleLifecycleService;
     this.duplicateProtectionService =
       duplicateProtectionService;
+    this.dcaOrderManager = dcaOrderManager;
+    this.fillRepository = fillRepository;
   }
 
   isTerminal(status) {
@@ -97,15 +101,63 @@ export default class TerminalOrderRecoveryService {
           "PENDING",
         );
 
+        if (!this.dcaOrderManager) {
+          this.exchangeOrderRepository.markRecoveryFailed(
+            exchangeOrder.id,
+            "DCA order manager is required for terminal retry",
+          );
+
+          return {
+            status: "DCA_RETRY_SERVICE_MISSING",
+            exchangeOrderId: exchangeOrder.exchange_order_id,
+            dcaOrderId: dcaOrder.id,
+            cycleId,
+          };
+        }
+
+        const retryClientOrderId =
+          `${exchangeOrder.client_order_id ?? `mxc-c${cycleId}-dca-${dcaOrder.id}`}-retry-${exchangeOrder.exchange_order_id}`;
+
+        const retryResult =
+          await this.dcaOrderManager.retryDcaOrder({
+            cycleId,
+            symbol,
+            dcaOrderId: dcaOrder.id,
+            clientOrderId: retryClientOrderId,
+          });
+
+        const retryOrder =
+          this.exchangeOrderRepository.findByClientOrderId(
+            retryClientOrderId,
+          );
+
+        if (!retryOrder) {
+          this.exchangeOrderRepository.markRecoveryFailed(
+            exchangeOrder.id,
+            "DCA retry was not placed because DCA target was not reached",
+          );
+
+          return {
+            status: "DCA_RETRY_WAITING",
+            exchangeOrderId: exchangeOrder.exchange_order_id,
+            dcaOrderId: dcaOrder.id,
+            cycleId,
+            retryResult,
+          };
+        }
+
         this.exchangeOrderRepository.markRecoveryProcessed(
           exchangeOrder.id,
         );
 
         return {
-          status: "DCA_RESET_TO_PENDING",
+          status: "DCA_RETRIED",
           exchangeOrderId: exchangeOrder.exchange_order_id,
           dcaOrderId: dcaOrder.id,
           cycleId,
+          retryClientOrderId,
+          retryExchangeOrderId: retryOrder.exchange_order_id,
+          retryResult,
         };
       }
 
@@ -175,14 +227,72 @@ export default class TerminalOrderRecoveryService {
         );
       }
 
+      if (!this.fillRepository) {
+        this.exchangeOrderRepository.markRecoveryFailed(
+          exchangeOrder.id,
+          "Fill repository is required for exit retry",
+        );
+
+        return {
+          status: "EXIT_RETRY_SERVICE_MISSING",
+          exchangeOrderId: exchangeOrder.exchange_order_id,
+          cycleId,
+        };
+      }
+
+      const fills =
+        this.fillRepository.findByCycleId(cycleId);
+
+      const oldClientOrderId =
+        String(exchangeOrder.client_order_id ?? "");
+
+      const reason =
+        oldClientOrderId.includes("-sl")
+          ? "STOP_LOSS"
+          : "TAKE_PROFIT";
+
+      const retryClientOrderId =
+        `${oldClientOrderId || `mxc-c${cycleId}-tp`}-retry-${exchangeOrder.exchange_order_id}`;
+
+      const exitResult =
+        await this.cycleLifecycleService.triggerExit({
+          cycleId,
+          symbol,
+          reason,
+          fills,
+          clientOrderId: retryClientOrderId,
+        });
+
+      const retryOrder =
+        this.exchangeOrderRepository.findByClientOrderId(
+          retryClientOrderId,
+        );
+
+      if (!retryOrder) {
+        this.exchangeOrderRepository.markRecoveryFailed(
+          exchangeOrder.id,
+          "Exit retry was not placed",
+        );
+
+        return {
+          status: "EXIT_RETRY_NOT_PLACED",
+          exchangeOrderId: exchangeOrder.exchange_order_id,
+          cycleId,
+          exitResult,
+        };
+      }
+
       this.exchangeOrderRepository.markRecoveryProcessed(
         exchangeOrder.id,
       );
 
       return {
-        status: "EXIT_RESET_TO_OPEN",
+        status: "EXIT_RETRIED",
         exchangeOrderId: exchangeOrder.exchange_order_id,
         cycleId,
+        retryClientOrderId,
+        retryExchangeOrderId: retryOrder.exchange_order_id,
+        exitResult,
       };
     }
 
@@ -210,6 +320,13 @@ export default class TerminalOrderRecoveryService {
           await this.recoverOrder(exchangeOrder),
         );
       } catch (error) {
+        try {
+          this.exchangeOrderRepository.markRecoveryFailed(
+            exchangeOrder.id,
+            error.message,
+          );
+        } catch {}
+
         results.push({
           status: "RECOVERY_FAILED",
           exchangeOrderId:
@@ -224,11 +341,17 @@ export default class TerminalOrderRecoveryService {
       initialBuyRetried: results.filter(
         (r) => r.status === "INITIAL_BUY_RETRIED",
       ).length,
-      dcaReset: results.filter(
-        (r) => r.status === "DCA_RESET_TO_PENDING",
+      dcaRetried: results.filter(
+        (r) => r.status === "DCA_RETRIED",
       ).length,
-      exitsReset: results.filter(
-        (r) => r.status === "EXIT_RESET_TO_OPEN",
+      dcaWaiting: results.filter(
+        (r) => r.status === "DCA_RETRY_WAITING",
+      ).length,
+      exitsRetried: results.filter(
+        (r) => r.status === "EXIT_RETRIED",
+      ).length,
+      exitRetryFailed: results.filter(
+        (r) => r.status === "EXIT_RETRY_NOT_PLACED",
       ).length,
       failed: results.filter(
         (r) => r.status === "RECOVERY_FAILED",

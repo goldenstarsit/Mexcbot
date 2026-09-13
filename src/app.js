@@ -154,6 +154,8 @@ const terminalOrderRecoveryService =
     tradingCycleExecutionService,
     cycleLifecycleService,
     duplicateProtectionService,
+    dcaOrderManager,
+    fillRepository,
   });
 
 const terminalOrderRecoveryRunner =

@@ -48,9 +48,20 @@ export default class DcaOrderManager {
     });
   }
 
-  async processPendingOrders({ cycleId, symbol }) {
-    const pendingOrders =
+  async processPendingOrders({
+    cycleId,
+    symbol,
+    dcaOrderId = null,
+    retryClientOrderId = null,
+  }) {
+    let pendingOrders =
       await this.dcaOrderRepository.findPendingByCycleId(cycleId);
+
+    if (dcaOrderId !== null) {
+      pendingOrders = pendingOrders.filter(
+        (order) => Number(order.id) === Number(dcaOrderId),
+      );
+    }
 
     if (!pendingOrders.length) {
       return [];
@@ -71,6 +82,7 @@ export default class DcaOrderManager {
 
       try {
         const clientOrderId =
+          retryClientOrderId ??
           this.duplicateProtectionService.createClientOrderId({
             cycleId,
             kind: "dca",
@@ -111,4 +123,18 @@ export default class DcaOrderManager {
 
     return results;
   }
+  async retryDcaOrder({
+    cycleId,
+    symbol,
+    dcaOrderId,
+    clientOrderId,
+  }) {
+    return this.processPendingOrders({
+      cycleId,
+      symbol,
+      dcaOrderId,
+      retryClientOrderId: clientOrderId,
+    });
+  }
+
 }

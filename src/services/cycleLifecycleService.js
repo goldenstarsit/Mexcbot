@@ -28,6 +28,7 @@ export default class CycleLifecycleService {
     symbol,
     reason,
     fills,
+    clientOrderId = null,
   }) {
     if (!Number.isInteger(cycleId) || cycleId <= 0) {
       throw new Error("Valid cycleId is required");
@@ -113,7 +114,8 @@ export default class CycleLifecycleService {
 
     const bestBid = market.bidPrice;
 
-    const clientOrderId =
+    const resolvedClientOrderId =
+      clientOrderId ??
       this.duplicateProtectionService.createClientOrderId({
         cycleId,
         kind: reason === "TAKE_PROFIT" ? "tp" : "sl",
@@ -126,7 +128,7 @@ export default class CycleLifecycleService {
         quantity: sellQuantity,
         price: sellPrice,
         bestBid,
-        clientOrderId,
+        clientOrderId: resolvedClientOrderId,
         reason,
       });
 
