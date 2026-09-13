@@ -1,7 +1,12 @@
 import db from "../connection.js";
 
 export default class TradingCycleRepository {
-  create({ symbol, status = "OPEN", cycleNumber = null }) {
+  create({
+    symbol,
+    status = "OPEN",
+    cycleNumber = null,
+    configSnapshot = null,
+  }) {
     if (!symbol) {
       throw new Error("Symbol is required");
     }
@@ -23,11 +28,19 @@ export default class TradingCycleRepository {
         INSERT INTO trading_cycles (
           symbol,
           cycle_number,
-          status
+          status,
+          config_snapshot_json
         )
-        VALUES (?, ?, ?)
+        VALUES (?, ?, ?, ?)
       `)
-      .run(symbol, nextCycleNumber, status);
+      .run(
+        symbol,
+        nextCycleNumber,
+        status,
+        configSnapshot
+          ? JSON.stringify(configSnapshot)
+          : null,
+      );
 
     return this.findById(result.lastInsertRowid);
   }
@@ -36,6 +49,17 @@ export default class TradingCycleRepository {
     return db
       .prepare("SELECT * FROM trading_cycles WHERE id = ?")
       .get(id);
+  }
+
+
+  getConfigSnapshot(id) {
+    const cycle = this.findById(id);
+
+    if (!cycle?.config_snapshot_json) {
+      return null;
+    }
+
+    return JSON.parse(cycle.config_snapshot_json);
   }
 
   findByStatus(status) {

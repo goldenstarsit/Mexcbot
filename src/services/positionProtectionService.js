@@ -13,25 +13,32 @@ export default class PositionProtectionService {
     this.tradingConfig = tradingConfig;
   }
 
-  calculateTakeProfit(averagePrice) {
+  calculateTakeProfit(
+    averagePrice,
+    config = this.tradingConfig,
+  ) {
     if (!Number.isFinite(averagePrice) || averagePrice <= 0) {
       throw new Error("Average price must be greater than 0");
     }
 
-    return averagePrice * (1 + this.tradingConfig.takeProfit / 100);
+    return averagePrice * (1 + config.takeProfit / 100);
   }
 
-  calculateStopLoss(initialFillPrice) {
+  calculateStopLoss(
+    initialFillPrice,
+    config = this.tradingConfig,
+  ) {
     if (!Number.isFinite(initialFillPrice) || initialFillPrice <= 0) {
       throw new Error("Initial fill price must be greater than 0");
     }
 
-    return initialFillPrice * (1 - this.tradingConfig.stopLoss / 100);
+    return initialFillPrice * (1 - config.stopLoss / 100);
   }
 
   async calculateAfterInitialFill({
     symbol,
     initialFill,
+    config = this.tradingConfig,
   }) {
     const initialPrice = Number(initialFill.price);
     const position = this.positionCalculator.calculate([{
@@ -40,7 +47,11 @@ export default class PositionProtectionService {
       price: initialPrice,
     }]);
 
-    const dcaLevels = this.dcaCalculator.calculateLevels(initialPrice);
+    const dcaLevels =
+      this.dcaCalculator.calculateLevels(
+        initialPrice,
+        config,
+      );
     const rules = await this.symbolRulesService.get(symbol);
 
     const dcaOrders = dcaLevels.map((level) => ({
@@ -58,11 +69,17 @@ export default class PositionProtectionService {
       position,
       dcaOrders,
       takeProfit: {
-        price: this.calculateTakeProfit(position.averagePrice),
+        price: this.calculateTakeProfit(
+          position.averagePrice,
+          config,
+        ),
         quantity: position.totalQuantity,
       },
       stopLoss: {
-        price: this.calculateStopLoss(initialPrice),
+        price: this.calculateStopLoss(
+          initialPrice,
+          config,
+        ),
         quantity: position.totalQuantity,
       },
     };
@@ -70,13 +87,17 @@ export default class PositionProtectionService {
 
   calculateAfterDcaFill({
     fills,
+    config = this.tradingConfig,
   }) {
     const position = this.positionCalculator.calculate(fills);
 
     return {
       position,
       takeProfit: {
-        price: this.calculateTakeProfit(position.averagePrice),
+        price: this.calculateTakeProfit(
+          position.averagePrice,
+          config,
+        ),
         quantity: position.totalQuantity,
       },
     };

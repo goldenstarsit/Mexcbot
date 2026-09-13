@@ -10,6 +10,7 @@ export default class CycleLifecycleService {
     symbolRulesService,
     duplicateProtectionService,
     triggerInitialOrder,
+    tradingConfigService,
   }) {
     this.tradingCycleRepository = tradingCycleRepository;
     this.exchangeOrderRepository = exchangeOrderRepository;
@@ -21,6 +22,7 @@ export default class CycleLifecycleService {
     this.symbolRulesService = symbolRulesService;
     this.duplicateProtectionService = duplicateProtectionService;
     this.triggerInitialOrder = triggerInitialOrder;
+    this.tradingConfigService = tradingConfigService;
   }
 
   async triggerExit({
@@ -213,10 +215,20 @@ export default class CycleLifecycleService {
       );
     }
 
+    if (!this.tradingConfigService) {
+      throw new Error(
+        "Trading config service is required",
+      );
+    }
+
+    const configSnapshot =
+      this.tradingConfigService.createCycleSnapshot();
+
     const cycle =
       await this.tradingCycleRepository.create({
         symbol,
         status: "OPEN",
+        configSnapshot,
       });
 
     return {

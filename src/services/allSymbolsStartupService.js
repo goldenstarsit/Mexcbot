@@ -1,11 +1,13 @@
 export default class AllSymbolsStartupService {
   constructor({
     tradingConfig,
+    tradingConfigService,
     marketPriceService,
     tradingCycleRepository,
     tradingCycleExecutionService,
   }) {
     this.tradingConfig = tradingConfig;
+    this.tradingConfigService = tradingConfigService;
     this.marketPriceService = marketPriceService;
     this.tradingCycleRepository = tradingCycleRepository;
     this.tradingCycleExecutionService = tradingCycleExecutionService;
@@ -29,7 +31,10 @@ export default class AllSymbolsStartupService {
   }
 
   async waitForAllSymbols() {
-    const symbols = this.tradingConfig.symbols;
+    const symbols =
+      this.tradingConfigService
+        ? this.tradingConfigService.getCurrent().config.symbols
+        : this.tradingConfig.symbols;
 
     const markets = await Promise.all(
       symbols.map(async (symbol) => ({
@@ -91,9 +96,15 @@ export default class AllSymbolsStartupService {
         continue;
       }
 
+      const configSnapshot =
+        this.tradingConfigService
+          ? this.tradingConfigService.createCycleSnapshot()
+          : null;
+
       const cycle = await this.tradingCycleRepository.create({
         symbol,
         status: "OPEN",
+        configSnapshot,
       });
 
       const initialOrder =

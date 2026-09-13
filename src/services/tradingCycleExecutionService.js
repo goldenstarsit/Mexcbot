@@ -82,6 +82,20 @@ export default class TradingCycleExecutionService {
       throw new Error("Valid initial fill is required");
     }
 
+    const cycle =
+      await this.tradingCycleRepository.findById(cycleId);
+
+    const configSnapshot =
+      cycle?.config_snapshot_json
+        ? JSON.parse(cycle.config_snapshot_json)
+        : null;
+
+    if (!configSnapshot?.config) {
+      throw new Error(
+        `Configuration snapshot is missing for cycle ${cycleId}`,
+      );
+    }
+
     const protection =
       await this.positionProtectionService.calculateAfterInitialFill({
         symbol,
@@ -89,6 +103,7 @@ export default class TradingCycleExecutionService {
           price: Number(fill.price),
           quantity: Number(fill.quantity),
         },
+        config: configSnapshot.config,
       });
 
     const dcaOrders = [];
@@ -125,8 +140,23 @@ export default class TradingCycleExecutionService {
       throw new Error("Valid cycleId is required");
     }
 
+    const cycle =
+      this.tradingCycleRepository.findById(cycleId);
+
+    const configSnapshot =
+      cycle?.config_snapshot_json
+        ? JSON.parse(cycle.config_snapshot_json)
+        : null;
+
+    if (!configSnapshot?.config) {
+      throw new Error(
+        `Configuration snapshot is missing for cycle ${cycleId}`,
+      );
+    }
+
     return this.positionProtectionService.calculateAfterDcaFill({
       fills,
+      config: configSnapshot.config,
     });
   }
 }

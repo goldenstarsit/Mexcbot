@@ -11,6 +11,8 @@ import MarketPriceService from "./exchange/marketPriceService.js";
 import MexcSymbolRules from "./exchange/mexcSymbolRules.js";
 
 import TradingCycleRepository from "./database/repositories/tradingCycleRepository.js";
+import RuntimeTradingConfigRepository from "./database/repositories/runtimeTradingConfigRepository.js";
+import TradingConfigService from "./services/tradingConfigService.js";
 import DcaOrderRepository from "./database/repositories/dcaOrderRepository.js";
 import ExchangeOrderRepository from "./database/repositories/exchangeOrderRepository.js";
 import OrderIntentRepository from "./database/repositories/OrderIntentRepository.js";
@@ -39,6 +41,20 @@ import ExchangeOrphanOrderRecoveryService from "./services/exchangeOrphanOrderRe
 import ExchangeOrphanOrderRecoveryRunner from "./services/exchangeOrphanOrderRecoveryRunner.js";
 
 validateTradingConfig(tradingConfig);
+
+const runtimeTradingConfigRepository =
+  new RuntimeTradingConfigRepository();
+
+const tradingConfigService =
+  new TradingConfigService({
+    runtimeTradingConfigRepository,
+    defaultConfig: tradingConfig,
+  });
+
+const runtimeConfig =
+  tradingConfigService.initialize();
+
+validateTradingConfig(runtimeConfig.config);
 
 const mexcClient = new MexcClient();
 const marketPriceService = new MarketPriceService(mexcClient);
@@ -112,6 +128,7 @@ const cycleLifecycleService = new CycleLifecycleService({
   quantityCalculator,
   symbolRulesService,
   duplicateProtectionService,
+  tradingConfigService,
   triggerInitialOrder: (params) =>
     tradingCycleExecutionService.triggerInitialOrder(params),
 });
@@ -141,6 +158,7 @@ const exitOrderRecoveryService =
 const allSymbolsStartupService =
   new AllSymbolsStartupService({
     tradingConfig,
+    tradingConfigService,
     marketPriceService,
     tradingCycleRepository,
     tradingCycleExecutionService,
