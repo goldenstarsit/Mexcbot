@@ -271,7 +271,6 @@ export default class ExchangeOrderRepository {
            OR (
              status = 'FILLED'
              AND fill_processing_status IN ('PENDING', 'FAILED', 'PROCESSING')
-             AND fill_processing_status != 'EXHAUSTED'
            )
         ORDER BY id ASC
       `)

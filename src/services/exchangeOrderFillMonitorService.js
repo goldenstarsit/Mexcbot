@@ -14,6 +14,15 @@ export default class ExchangeOrderFillMonitorService {
     this.tradingCycleExecutionService =
       tradingCycleExecutionService;
     this.cycleLifecycleService = cycleLifecycleService;
+
+    const configuredMaxAttempts =
+      tradingConfig?.fillProcessing?.maxAttempts;
+
+    this.maxFillProcessingAttempts =
+      Number.isInteger(configuredMaxAttempts) &&
+      configuredMaxAttempts > 0
+        ? configuredMaxAttempts
+        : 5;
   }
 
   async checkOrder({ exchangeOrder, symbol }) {
