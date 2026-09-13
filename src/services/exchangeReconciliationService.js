@@ -3,11 +3,83 @@ export default class ExchangeReconciliationService {
     mexcClient,
     exchangeOrderRepository,
     exchangeOrderFillMonitorService,
+    tradingCycleRepository,
+    dcaOrderRepository,
+    fillRepository,
   }) {
     this.mexcClient = mexcClient;
-    this.exchangeOrderRepository = exchangeOrderRepository;
+    this.exchangeOrderRepository =
+      exchangeOrderRepository;
     this.exchangeOrderFillMonitorService =
       exchangeOrderFillMonitorService;
+    this.tradingCycleRepository =
+      tradingCycleRepository;
+    this.dcaOrderRepository =
+      dcaOrderRepository;
+    this.fillRepository =
+      fillRepository;
+  }
+
+  auditDbConsistency(exchangeOrder) {
+    const issues = [];
+
+    const cycle =
+      this.tradingCycleRepository?.findById(
+        exchangeOrder.trading_cycle_id,
+      );
+
+    if (!cycle) {
+      issues.push("TRADING_CYCLE_MISSING");
+    } else if (
+      String(cycle.symbol) !==
+      String(exchangeOrder.symbol)
+    ) {
+      issues.push("CYCLE_SYMBOL_MISMATCH");
+    }
+
+    if (exchangeOrder.dca_order_id !== null) {
+      const dcaOrder =
+        this.dcaOrderRepository?.findById(
+          exchangeOrder.dca_order_id,
+        );
+
+      if (!dcaOrder) {
+        issues.push("DCA_ORDER_MISSING");
+      } else {
+        if (
+          Number(dcaOrder.trading_cycle_id) !==
+          Number(exchangeOrder.trading_cycle_id)
+        ) {
+          issues.push("DCA_CYCLE_MISMATCH");
+        }
+
+        if (
+          String(dcaOrder.symbol) !==
+          String(exchangeOrder.symbol)
+        ) {
+          issues.push("DCA_SYMBOL_MISMATCH");
+        }
+      }
+    }
+
+    const fills =
+      this.fillRepository?.findByExchangeOrderId(
+        exchangeOrder.id,
+      ) ?? [];
+
+    if (
+      String(exchangeOrder.status).toUpperCase() ===
+        "FILLED" &&
+      fills.length === 0
+    ) {
+      issues.push("FILLED_ORDER_WITHOUT_FILL");
+    }
+
+    return {
+      consistent: issues.length === 0,
+      issues,
+      fillCount: fills.length,
+    };
   }
 
   normalizeStatus(response) {
@@ -37,12 +109,15 @@ export default class ExchangeReconciliationService {
       };
     }
 
-    const response = await this.mexcClient.getOrder({
-      symbol,
-      orderId: exchangeOrderId,
-    });
+    const response =
+      await this.mexcClient.getOrder({
+        symbol,
+        orderId: exchangeOrderId,
+      });
 
-    const exchangeStatus = this.normalizeStatus(response);
+    const exchangeStatus =
+      this.normalizeStatus(response);
+
     const localStatus = String(
       exchangeOrder.status ?? "",
     ).toUpperCase();
@@ -60,9 +135,11 @@ export default class ExchangeReconciliationService {
       ) ||
       (
         localStatus === "ORDER_PLACED" &&
-        ["NEW", "ORDER_PLACED", "PARTIALLY_FILLED"].includes(
-          exchangeStatus,
-        )
+        [
+          "NEW",
+          "ORDER_PLACED",
+          "PARTIALLY_FILLED",
+        ].includes(exchangeStatus)
       );
 
     if (
@@ -123,9 +200,25 @@ export default class ExchangeReconciliationService {
 
     for (const exchangeOrder of orders) {
       try {
-        results.push(
-          await this.reconcileOrder(exchangeOrder),
-        );
+        const dbAudit =
+          this.auditDbConsistency(exchangeOrder);
+
+        const exchangeResult =
+          await this.reconcileOrder(exchangeOrder);
+
+        results.push({
+          ...exchangeResult,
+          dbConsistent: dbAudit.consistent,
+          dbIssues: dbAudit.issues,
+          fillCount: dbAudit.fillCount,
+          status:
+            exchangeResult.status ===
+              "EXCHANGE_CHECK_FAILED"
+              ? exchangeResult.status
+              : !dbAudit.consistent
+                ? "DB_INCONSISTENCY"
+                : exchangeResult.status,
+        });
       } catch (error) {
         results.push({
           exchangeOrderId:
@@ -144,13 +237,22 @@ export default class ExchangeReconciliationService {
         (result) => result.status === "CONSISTENT",
       ).length,
       discrepancies: results.filter(
-        (result) => result.status === "DISCREPANCY",
+        (result) =>
+          result.status === "DISCREPANCY" ||
+          result.status === "DB_INCONSISTENCY",
+      ).length,
+      dbInconsistencies: results.filter(
+        (result) =>
+          result.status === "DB_INCONSISTENCY",
       ).length,
       recoveredFills: results.filter(
-        (result) => result.status === "FILL_RECOVERED",
+        (result) =>
+          result.status === "FILL_RECOVERED",
       ).length,
       failed: results.filter(
-        (result) => result.status === "EXCHANGE_CHECK_FAILED",
+        (result) =>
+          result.status ===
+          "EXCHANGE_CHECK_FAILED",
       ).length,
       results,
     };
