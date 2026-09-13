@@ -35,6 +35,10 @@ export default class TerminalOrderRecoveryService {
       exchangeOrder.status ?? "",
     ).toUpperCase();
 
+    const recoveryStatus = String(
+      exchangeOrder.recovery_status ?? "PENDING",
+    ).toUpperCase();
+
     if (!this.isTerminal(status)) {
       return {
         status: "SKIPPED",
@@ -42,11 +46,27 @@ export default class TerminalOrderRecoveryService {
       };
     }
 
+    if (recoveryStatus === "PROCESSED") {
+      return {
+        status: "ALREADY_RECOVERED",
+        exchangeOrderId: exchangeOrder.exchange_order_id,
+      };
+    }
+
+    this.exchangeOrderRepository.markRecoveryProcessing(
+      exchangeOrder.id,
+    );
+
     const cycleId = Number(exchangeOrder.trading_cycle_id);
     const symbol = String(exchangeOrder.symbol);
     const side = String(exchangeOrder.side).toUpperCase();
 
     if (!cycleId || !symbol) {
+      this.exchangeOrderRepository.markRecoveryFailed(
+        exchangeOrder.id,
+        "Invalid terminal exchange order",
+      );
+
       return {
         status: "INVALID_ORDER",
         exchangeOrderId: exchangeOrder.exchange_order_id,
@@ -61,6 +81,11 @@ export default class TerminalOrderRecoveryService {
           );
 
         if (!dcaOrder) {
+          this.exchangeOrderRepository.markRecoveryFailed(
+            exchangeOrder.id,
+            "DCA order not found",
+          );
+
           return {
             status: "DCA_NOT_FOUND",
             exchangeOrderId: exchangeOrder.exchange_order_id,
@@ -70,6 +95,10 @@ export default class TerminalOrderRecoveryService {
         this.dcaOrderRepository.updateStatus(
           dcaOrder.id,
           "PENDING",
+        );
+
+        this.exchangeOrderRepository.markRecoveryProcessed(
+          exchangeOrder.id,
         );
 
         return {
@@ -84,6 +113,11 @@ export default class TerminalOrderRecoveryService {
         this.tradingCycleRepository.findById(cycleId);
 
       if (!cycle || cycle.status !== "OPEN") {
+        this.exchangeOrderRepository.markRecoveryFailed(
+          exchangeOrder.id,
+          "Initial BUY cycle is not OPEN",
+        );
+
         return {
           status: "INITIAL_BUY_CYCLE_NOT_OPEN",
           exchangeOrderId: exchangeOrder.exchange_order_id,
@@ -105,6 +139,10 @@ export default class TerminalOrderRecoveryService {
           clientOrderId,
         });
 
+      this.exchangeOrderRepository.markRecoveryProcessed(
+        exchangeOrder.id,
+      );
+
       return {
         status: "INITIAL_BUY_RETRIED",
         exchangeOrderId: exchangeOrder.exchange_order_id,
@@ -118,6 +156,11 @@ export default class TerminalOrderRecoveryService {
         this.tradingCycleRepository.findById(cycleId);
 
       if (!cycle) {
+        this.exchangeOrderRepository.markRecoveryFailed(
+          exchangeOrder.id,
+          "Trading cycle not found",
+        );
+
         return {
           status: "CYCLE_NOT_FOUND",
           exchangeOrderId: exchangeOrder.exchange_order_id,
@@ -132,12 +175,21 @@ export default class TerminalOrderRecoveryService {
         );
       }
 
+      this.exchangeOrderRepository.markRecoveryProcessed(
+        exchangeOrder.id,
+      );
+
       return {
         status: "EXIT_RESET_TO_OPEN",
         exchangeOrderId: exchangeOrder.exchange_order_id,
         cycleId,
       };
     }
+
+    this.exchangeOrderRepository.markRecoveryFailed(
+      exchangeOrder.id,
+      `Unsupported order side: ${side}`,
+    );
 
     return {
       status: "UNSUPPORTED_SIDE",
@@ -148,7 +200,7 @@ export default class TerminalOrderRecoveryService {
 
   async recover() {
     const terminalOrders =
-      this.exchangeOrderRepository.findTerminalOrders?.() ?? [];
+      this.exchangeOrderRepository.findRecoverableTerminalOrders?.() ?? [];
 
     const results = [];
 

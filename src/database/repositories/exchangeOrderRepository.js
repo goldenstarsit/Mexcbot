@@ -169,6 +169,67 @@ export default class ExchangeOrderRepository {
     return this.findById(id);
   }
 
+  findRecoverableTerminalOrders() {
+    return db
+      .prepare(`
+        SELECT *
+        FROM exchange_orders
+        WHERE status IN (
+          'CANCELED',
+          'CANCELLED',
+          'REJECTED',
+          'EXPIRED'
+        )
+        AND recovery_status IN ('PENDING', 'FAILED')
+        ORDER BY id ASC
+      `)
+      .all();
+  }
+
+  markRecoveryProcessing(id) {
+    db.prepare(`
+      UPDATE exchange_orders
+      SET
+        recovery_status = 'PROCESSING',
+        recovery_attempts = recovery_attempts + 1,
+        recovery_error = NULL,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(id);
+
+    return this.findById(id);
+  }
+
+  markRecoveryProcessed(id) {
+    db.prepare(`
+      UPDATE exchange_orders
+      SET
+        recovery_status = 'PROCESSED',
+        recovery_error = NULL,
+        recovered_at = CURRENT_TIMESTAMP,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(id);
+
+    return this.findById(id);
+  }
+
+  markRecoveryFailed(id, error) {
+    db.prepare(`
+      UPDATE exchange_orders
+      SET
+        recovery_status = 'FAILED',
+        recovery_error = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      String(error?.message ?? error ?? "Unknown recovery error"),
+      id,
+    );
+
+    return this.findById(id);
+  }
+
   findTerminalOrders() {
     return db
       .prepare(`
