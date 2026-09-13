@@ -31,6 +31,7 @@ import ExitOrderRecoveryService from "./services/exitOrderRecoveryService.js";
 import ExchangeReconciliationService from "./services/exchangeReconciliationService.js";
 import ExchangeReconciliationRunner from "./services/exchangeReconciliationRunner.js";
 import TerminalOrderRecoveryService from "./services/terminalOrderRecoveryService.js";
+import TerminalOrderRecoveryRunner from "./services/terminalOrderRecoveryRunner.js";
 
 validateTradingConfig(tradingConfig);
 
@@ -155,6 +156,12 @@ const terminalOrderRecoveryService =
     duplicateProtectionService,
   });
 
+const terminalOrderRecoveryRunner =
+  new TerminalOrderRecoveryRunner({
+    terminalOrderRecoveryService,
+    intervalMs: 60000,
+  });
+
 const exchangeReconciliationRunner =
   new ExchangeReconciliationRunner({
     exchangeReconciliationService,
@@ -222,6 +229,7 @@ if (!hasApiCredentials) {
 
     pollingRunner.start();
     exchangeReconciliationRunner.start();
+    terminalOrderRecoveryRunner.start();
 
     console.log("[OrderPolling] Started: 5000ms");
     console.log("[Reconciliation] Runner started: 60000ms");
@@ -234,6 +242,7 @@ function shutdown(signal) {
   console.log(`[Shutdown] ${signal}`);
   pollingRunner.stop();
   exchangeReconciliationRunner.stop();
+  terminalOrderRecoveryRunner.stop();
 
   if (db.open) {
     db.close();
