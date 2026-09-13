@@ -25,10 +25,23 @@ export default class DuplicateProtectionService {
       );
 
     if (local) {
-      return {
-        source: "LOCAL",
-        exchangeOrder: local,
-      };
+      const terminalStatuses = [
+        "CANCELED",
+        "CANCELLED",
+        "REJECTED",
+        "EXPIRED",
+      ];
+
+      if (
+        !terminalStatuses.includes(
+          String(local.status ?? "").toUpperCase(),
+        )
+      ) {
+        return {
+          source: "LOCAL",
+          exchangeOrder: local,
+        };
+      }
     }
 
     try {

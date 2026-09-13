@@ -30,6 +30,7 @@ import ExchangeOrderPollingRunner from "./services/exchangeOrderPollingRunner.js
 import ExitOrderRecoveryService from "./services/exitOrderRecoveryService.js";
 import ExchangeReconciliationService from "./services/exchangeReconciliationService.js";
 import ExchangeReconciliationRunner from "./services/exchangeReconciliationRunner.js";
+import TerminalOrderRecoveryService from "./services/terminalOrderRecoveryService.js";
 
 validateTradingConfig(tradingConfig);
 
@@ -141,6 +142,17 @@ const exchangeReconciliationService =
   new ExchangeReconciliationService({
     mexcClient,
     exchangeOrderRepository,
+    exchangeOrderFillMonitorService,
+  });
+
+const terminalOrderRecoveryService =
+  new TerminalOrderRecoveryService({
+    tradingCycleRepository,
+    dcaOrderRepository,
+    exchangeOrderRepository,
+    tradingCycleExecutionService,
+    cycleLifecycleService,
+    duplicateProtectionService,
   });
 
 const exchangeReconciliationRunner =
@@ -178,6 +190,14 @@ if (!hasApiCredentials) {
   try {
     const recovery =
       await exitOrderRecoveryService.recover();
+
+    const terminalRecovery =
+      await terminalOrderRecoveryService.recover();
+
+    console.log(
+      "[TerminalRecovery]",
+      JSON.stringify(terminalRecovery, null, 2),
+    );
 
     console.log(
       "[ExitRecovery]",

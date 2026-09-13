@@ -23,7 +23,11 @@ export default class TradingCycleExecutionService {
     this.positionProtectionService = positionProtectionService;
   }
 
-  async triggerInitialOrder({ cycleId, symbol }) {
+  async triggerInitialOrder({
+    cycleId,
+    symbol,
+    clientOrderId = null,
+  }) {
     if (!Number.isInteger(cycleId) || cycleId <= 0) {
       throw new Error("Valid cycleId is required");
     }
@@ -41,7 +45,8 @@ export default class TradingCycleExecutionService {
       rules,
     );
 
-    const clientOrderId =
+    const resolvedClientOrderId =
+      clientOrderId ??
       this.duplicateProtectionService.createClientOrderId({
         cycleId,
         kind: "initial",

@@ -109,6 +109,31 @@ export default class ExchangeOrderRepository {
       .get(clientOrderId);
   }
 
+  findLatestByCycleIdAndSide(tradingCycleId, side) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM exchange_orders
+        WHERE trading_cycle_id = ?
+          AND side = ?
+        ORDER BY id DESC
+        LIMIT 1
+      `)
+      .get(tradingCycleId, side);
+  }
+
+  findLatestByDcaOrderId(dcaOrderId) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM exchange_orders
+        WHERE dca_order_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+      `)
+      .get(dcaOrderId);
+  }
+
   findActiveSellByCycleId(tradingCycleId) {
     return db
       .prepare(`
@@ -142,6 +167,22 @@ export default class ExchangeOrderRepository {
     `).run(status, id);
 
     return this.findById(id);
+  }
+
+  findTerminalOrders() {
+    return db
+      .prepare(`
+        SELECT *
+        FROM exchange_orders
+        WHERE status IN (
+          'CANCELED',
+          'CANCELLED',
+          'REJECTED',
+          'EXPIRED'
+        )
+        ORDER BY id ASC
+      `)
+      .all();
   }
 
   findActive() {

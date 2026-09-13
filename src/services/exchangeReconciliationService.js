@@ -2,9 +2,12 @@ export default class ExchangeReconciliationService {
   constructor({
     mexcClient,
     exchangeOrderRepository,
+    exchangeOrderFillMonitorService,
   }) {
     this.mexcClient = mexcClient;
     this.exchangeOrderRepository = exchangeOrderRepository;
+    this.exchangeOrderFillMonitorService =
+      exchangeOrderFillMonitorService;
   }
 
   normalizeStatus(response) {
@@ -62,6 +65,43 @@ export default class ExchangeReconciliationService {
         )
       );
 
+    if (
+      exchangeStatus === "FILLED" &&
+      localStatus !== "FILLED"
+    ) {
+      if (!this.exchangeOrderFillMonitorService) {
+        throw new Error(
+          "Exchange order fill monitor service is required for fill recovery",
+        );
+      }
+
+      const recovery =
+        await this.exchangeOrderFillMonitorService.processOrder({
+          exchangeOrder,
+          symbol,
+        });
+
+      const recoveredOrder =
+        this.exchangeOrderRepository.findById(
+          exchangeOrder.id,
+        );
+
+      return {
+        exchangeOrderId,
+        symbol,
+        localStatus,
+        exchangeStatus,
+        match: false,
+        status: "FILL_RECOVERED",
+        recovery,
+        localStatusAfterRecovery:
+          recoveredOrder?.status ?? null,
+        fillProcessingStatus:
+          recoveredOrder?.fill_processing_status ?? null,
+        response,
+      };
+    }
+
     return {
       exchangeOrderId,
       symbol,
@@ -105,6 +145,9 @@ export default class ExchangeReconciliationService {
       ).length,
       discrepancies: results.filter(
         (result) => result.status === "DISCREPANCY",
+      ).length,
+      recoveredFills: results.filter(
+        (result) => result.status === "FILL_RECOVERED",
       ).length,
       failed: results.filter(
         (result) => result.status === "EXCHANGE_CHECK_FAILED",

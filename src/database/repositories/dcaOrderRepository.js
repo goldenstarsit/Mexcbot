@@ -53,6 +53,22 @@ export default class DcaOrderRepository {
       .all(tradingCycleId);
   }
 
+  findByExchangeOrderId(exchangeOrderId) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM dca_orders
+        WHERE id IN (
+          SELECT dca_order_id
+          FROM exchange_orders
+          WHERE exchange_order_id = ?
+            AND dca_order_id IS NOT NULL
+        )
+        LIMIT 1
+      `)
+      .get(exchangeOrderId);
+  }
+
   findPendingByCycleId(tradingCycleId) {
     return db
       .prepare(`
