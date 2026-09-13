@@ -6,6 +6,7 @@ const localOrder = {
   symbol: "BTCUSDT",
   status: "ORDER_PLACED",
   trading_cycle_id: 91,
+  dca_order_id: null,
   side: "BUY",
 };
 
@@ -78,6 +79,33 @@ const service = new ExchangeReconciliationService({
   mexcClient,
   exchangeOrderRepository,
   exchangeOrderFillMonitorService,
+  tradingCycleRepository: {
+    findById(id) {
+      if (id !== 91) {
+        throw new Error("Unexpected trading cycle ID");
+      }
+
+      return {
+        id: 91,
+        symbol: "BTCUSDT",
+      };
+    },
+  },
+  dcaOrderRepository: {
+    findById() {
+      return null;
+    },
+  },
+  fillRepository: {
+    findByExchangeOrderId() {
+      return [
+        {
+          id: 1,
+          exchange_order_id: 501,
+        },
+      ];
+    },
+  },
 });
 
 const result = await service.reconcile();
