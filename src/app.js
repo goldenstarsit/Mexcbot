@@ -28,6 +28,7 @@ import AllSymbolsStartupService from "./services/allSymbolsStartupService.js";
 import ExchangeOrderFillMonitorService from "./services/exchangeOrderFillMonitorService.js";
 import ExchangeOrderPollingRunner from "./services/exchangeOrderPollingRunner.js";
 import ExitOrderRecoveryService from "./services/exitOrderRecoveryService.js";
+import ExchangeReconciliationService from "./services/exchangeReconciliationService.js";
 
 validateTradingConfig(tradingConfig);
 
@@ -135,6 +136,12 @@ const allSymbolsStartupService =
     tradingCycleExecutionService,
   });
 
+const exchangeReconciliationService =
+  new ExchangeReconciliationService({
+    mexcClient,
+    exchangeOrderRepository,
+  });
+
 console.log("MEXCBOT");
 console.log("Environment:", process.env.NODE_ENV);
 console.log("MEXC Base URL:", process.env.MEXC_BASE_URL);
@@ -168,6 +175,14 @@ if (!hasApiCredentials) {
     console.log(
       "[ExitRecovery]",
       JSON.stringify(recovery, null, 2),
+    );
+
+    const reconciliation =
+      await exchangeReconciliationService.reconcile();
+
+    console.log(
+      "[Reconciliation]",
+      JSON.stringify(reconciliation, null, 2),
     );
 
     const startup =
