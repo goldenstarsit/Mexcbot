@@ -311,6 +311,21 @@ export default class ExchangeOrderRepository {
     return this.findById(id);
   }
 
+  recoverFillProcessing(id) {
+    db.prepare(`
+      UPDATE exchange_orders
+      SET
+        fill_processing_status = 'FAILED',
+        fill_processing_attempts = 0,
+        fill_processing_error = NULL,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+        AND fill_processing_status = 'EXHAUSTED'
+    `).run(id);
+
+    return this.findById(id);
+  }
+
   markFillProcessed(id) {
     db.prepare(`
       UPDATE exchange_orders

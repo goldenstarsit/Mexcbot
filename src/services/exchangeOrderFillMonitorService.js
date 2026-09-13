@@ -188,6 +188,58 @@ export default class ExchangeOrderFillMonitorService {
     }
   }
 
+  recoverExhaustedFillProcessing(exchangeOrder) {
+    if (!exchangeOrder) {
+      throw new Error("Exchange order is required");
+    }
+
+    const status = String(
+      exchangeOrder.fill_processing_status ?? "",
+    ).toUpperCase();
+
+    if (status === "PROCESSED") {
+      return {
+        recovered: false,
+        reason: "FILL_ALREADY_PROCESSED",
+        exchangeOrder,
+      };
+    }
+
+    if (status !== "EXHAUSTED") {
+      return {
+        recovered: false,
+        reason: "FILL_PROCESSING_NOT_EXHAUSTED",
+        exchangeOrder,
+      };
+    }
+
+    const recoveredOrder =
+      this.exchangeOrderRepository.recoverFillProcessing(
+        exchangeOrder.id,
+      );
+
+    if (
+      !recoveredOrder ||
+      recoveredOrder.fill_processing_status !== "FAILED"
+    ) {
+      throw new Error(
+        `Unable to recover fill processing for order ${exchangeOrder.id}`,
+      );
+    }
+
+    return {
+      recovered: true,
+      reason: "FILL_PROCESSING_RECOVERED",
+      exchangeOrder: recoveredOrder,
+      processingStatus:
+        recoveredOrder.fill_processing_status,
+      processingAttempts:
+        recoveredOrder.fill_processing_attempts,
+      maxAttempts:
+        this.maxFillProcessingAttempts,
+    };
+  }
+
   async processOrder({ exchangeOrder, symbol }) {
     if (!exchangeOrder) {
       throw new Error("Exchange order is required");
