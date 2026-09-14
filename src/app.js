@@ -154,6 +154,7 @@ const exchangeOrderFillMonitorService =
     fillRepository,
     tradingCycleExecutionService,
     cycleLifecycleService,
+    tradingConfigService,
   });
 
 const pollingRunner = new ExchangeOrderPollingRunner({
@@ -198,6 +199,7 @@ const terminalOrderRecoveryService =
     duplicateProtectionService,
     dcaOrderManager,
     fillRepository,
+    tradingConfigService,
   });
 
 const terminalOrderRecoveryRunner =
@@ -223,6 +225,7 @@ const exchangeOrphanOrderRecoveryService =
   new ExchangeOrphanOrderRecoveryService({
     mexcClient,
     tradingConfig,
+    tradingConfigService,
     exchangeOrderRepository,
     tradingCycleRepository,
     dcaOrderRepository,
