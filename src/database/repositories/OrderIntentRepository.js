@@ -74,7 +74,47 @@ export default class OrderIntentRepository {
       .all();
   }
 
+  transition(id, nextStatus) {
+    const intent = this.findById(id);
+
+    if (!intent) {
+      throw new Error(`Order intent ${id} was not found`);
+    }
+
+    const currentStatus = String(intent.status ?? "").toUpperCase();
+    const allowedTransitions = {
+      PENDING: new Set([
+        "EXCHANGE_PLACED",
+        "RECOVERY_REQUIRED",
+        "FAILED",
+        "RESOLVED",
+      ]),
+      RECOVERY_REQUIRED: new Set([
+        "RESOLVED",
+        "RECOVERY_REQUIRED",
+      ]),
+      EXCHANGE_PLACED: new Set([
+        "RESOLVED",
+        "RECOVERY_REQUIRED",
+      ]),
+      RESOLVED: new Set(),
+      FAILED: new Set(),
+    };
+
+    const allowed = allowedTransitions[currentStatus] ?? new Set();
+
+    if (!allowed.has(nextStatus)) {
+      throw new Error(
+        `Invalid order intent transition: ${currentStatus} -> ${nextStatus}`,
+      );
+    }
+
+    return intent;
+  }
+
   markExchangePlaced(id, exchangeOrderId) {
+    this.transition(id, "EXCHANGE_PLACED");
+
     db.prepare(`
       UPDATE order_intents
       SET
@@ -89,6 +129,8 @@ export default class OrderIntentRepository {
   }
 
   markRecoveryRequired(id, error = null) {
+    this.transition(id, "RECOVERY_REQUIRED");
+
     db.prepare(`
       UPDATE order_intents
       SET
@@ -107,6 +149,8 @@ export default class OrderIntentRepository {
   }
 
   markResolved(id, exchangeOrderId = null) {
+    this.transition(id, "RESOLVED");
+
     db.prepare(`
       UPDATE order_intents
       SET
@@ -122,6 +166,8 @@ export default class OrderIntentRepository {
   }
 
   markFailed(id, error = null) {
+    this.transition(id, "FAILED");
+
     db.prepare(`
       UPDATE order_intents
       SET
