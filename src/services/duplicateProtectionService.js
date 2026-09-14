@@ -299,12 +299,6 @@ export default class DuplicateProtectionService {
       );
     }
 
-    if (!this.tradingCapitalReservationService) {
-      throw new Error(
-        "Trading capital reservation service is required for BUY orders",
-      );
-    }
-
     let reservation;
 
     try {
