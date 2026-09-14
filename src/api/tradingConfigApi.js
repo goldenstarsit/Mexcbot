@@ -12,6 +12,7 @@ export default class TradingConfigApi {
   constructor({
     tradingConfigService,
     tradingCycleRepository,
+    botStatusService = null,
     host = "127.0.0.1",
     port = 3000,
   }) {
@@ -29,9 +30,19 @@ export default class TradingConfigApi {
 
     this.tradingConfigService = tradingConfigService;
     this.tradingCycleRepository = tradingCycleRepository;
+    this.botStatusService = botStatusService;
     this.host = host;
     this.port = port;
     this.server = null;
+  }
+
+  sendHtml(response, body) {
+    response.writeHead(200, {
+      "Content-Type": "text/html; charset=utf-8",
+      "Content-Length": Buffer.byteLength(body),
+    });
+
+    response.end(body);
   }
 
   sendJson(response, statusCode, payload) {
@@ -97,6 +108,36 @@ export default class TradingConfigApi {
       });
 
       response.end(body);
+      return;
+    }
+
+    if (
+      request.method === "GET" &&
+      (url.pathname === "/status" || url.pathname === "/runtime")
+    ) {
+      this.sendHtml(
+        response,
+        fs.readFileSync(
+          path.join(PUBLIC_DIR, "status.html"),
+          "utf8",
+        ),
+      );
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/status") {
+      if (!this.botStatusService) {
+        this.sendJson(response, 503, {
+          error: "Bot status service is not configured",
+        });
+        return;
+      }
+
+      this.sendJson(
+        response,
+        200,
+        this.botStatusService.getStatus(),
+      );
       return;
     }
 

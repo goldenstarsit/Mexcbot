@@ -34,6 +34,7 @@ import ExchangeOrderPollingRunner from "./services/exchangeOrderPollingRunner.js
 import ExitOrderRecoveryService from "./services/exitOrderRecoveryService.js";
 import ExchangeReconciliationService from "./services/exchangeReconciliationService.js";
 import ExchangeReconciliationRunner from "./services/exchangeReconciliationRunner.js";
+import BotStatusService from "./services/botStatusService.js";
 import TerminalOrderRecoveryService from "./services/terminalOrderRecoveryService.js";
 import TerminalOrderRecoveryRunner from "./services/terminalOrderRecoveryRunner.js";
 import OrderIntentRecoveryService from "./services/orderIntentRecoveryService.js";
@@ -57,32 +58,11 @@ const runtimeConfig =
 
 validateTradingConfig(runtimeConfig.config);
 
-const tradingConfigApiConfig = {
-  tradingConfigService,
-  host: "127.0.0.1",
-  port: 3000,
-};
-
 const mexcClient = new MexcClient();
 const marketPriceService = new MarketPriceService(mexcClient);
 const symbolRulesService = new MexcSymbolRules(mexcClient);
 
 const tradingCycleRepository = new TradingCycleRepository();
-
-const tradingConfigApi =
-  new TradingConfigApi({
-    tradingConfigService,
-    tradingCycleRepository,
-    host: "127.0.0.1",
-    port: 3000,
-  });
-
-tradingConfigApi.start();
-
-console.log(
-  "[ConfigAPI] Listening: http://127.0.0.1:3000/api/config",
-);
-
 
 const dcaOrderRepository = new DcaOrderRepository();
 const exchangeOrderRepository = new ExchangeOrderRepository();
@@ -251,6 +231,34 @@ const exchangeReconciliationRunner =
     exchangeReconciliationService,
     intervalMs: 60000,
   });
+
+const botStatusService = new BotStatusService({
+  tradingConfigService,
+  tradingCycleRepository,
+  db,
+  runners: {
+    orderPolling: pollingRunner,
+    reconciliation: exchangeReconciliationRunner,
+    terminalRecovery: terminalOrderRecoveryRunner,
+    orderIntentRecovery: orderIntentRecoveryRunner,
+    orphanRecovery: exchangeOrphanOrderRecoveryRunner,
+  },
+});
+
+const tradingConfigApi =
+  new TradingConfigApi({
+    tradingConfigService,
+    tradingCycleRepository,
+    botStatusService,
+    host: "127.0.0.1",
+    port: 3000,
+  });
+
+tradingConfigApi.start();
+
+console.log(
+  "[ConfigAPI] Listening: http://127.0.0.1:3000/api/config",
+);
 
 console.log("MEXCBOT");
 console.log("Environment:", process.env.NODE_ENV);
