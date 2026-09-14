@@ -116,6 +116,7 @@ export default class TradingCapitalReservationService {
         resolve,
         reject,
         timeoutHandle: null,
+        settled: false,
       };
 
       request.timeoutHandle = setTimeout(() => {
@@ -142,6 +143,10 @@ export default class TradingCapitalReservationService {
       return false;
     }
 
+    if (request.settled) {
+      return false;
+    }
+
     const index = this.pendingReservations.indexOf(request);
 
     if (index === -1) {
@@ -149,6 +154,7 @@ export default class TradingCapitalReservationService {
     }
 
     this.pendingReservations.splice(index, 1);
+    request.settled = true;
 
     if (request.timeoutHandle) {
       clearTimeout(request.timeoutHandle);
@@ -202,6 +208,13 @@ export default class TradingCapitalReservationService {
       const reservation = this.reserve(
         request.requiredUsdt,
       );
+
+      if (request.settled) {
+        this.release(reservation);
+        continue;
+      }
+
+      request.settled = true;
 
       if (request.timeoutHandle) {
         clearTimeout(request.timeoutHandle);
