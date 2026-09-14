@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MEXCBOT Configuration</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      color: #17202a;
+    }
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.08);
+    }
+    h1 { margin-top: 0; }
+    h2 { font-size: 18px; margin-top: 0; }
+    label {
+      display: block;
+      font-weight: 600;
+      margin: 14px 0 6px;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccd3da;
+      border-radius: 7px;
+      font-size: 16px;
+    }
+    .symbols {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .symbol {
+      border: 1px solid #ccd3da;
+      border-radius: 7px;
+      padding: 10px;
+    }
+    .symbol input { width: auto; margin-right: 6px; }
+    button {
+      width: 100%;
+      padding: 12px;
+      border: 0;
+      border-radius: 7px;
+      background: #1769aa;
+      color: white;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    button:disabled { opacity: .6; }
+    #status {
+      margin-top: 12px;
+      padding: 10px;
+      border-radius: 7px;
+      display: none;
+    }
+    .info {
+      color: #566573;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <h1>MEXCBOT Configuration</h1>
+    <div class="info">
+      Version: <strong id="version">-</strong>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Symbols</h2>
+    <div id="symbols" class="symbols"></div>
+  </div>
+
+  <div class="card">
+    <h2>Position Protection</h2>
+
+    <label for="takeProfit">Take Profit (%)</label>
+    <input id="takeProfit" type="number" min="0.0001" step="0.01">
+
+    <label for="stopLoss">Stop Loss (%)</label>
+    <input id="stopLoss" type="number" min="0.0001" max="99.99" step="0.01">
+  </div>
+
+  <div class="card">
+    <h2>DCA</h2>
+
+    <label for="dcaLevels">DCA Levels</label>
+    <input id="dcaLevels" type="number" value="9" disabled>
+
+    <label for="dcaFormula">Formula</label>
+    <input id="dcaFormula" value="triangular" disabled>
+
+    <p class="info">
+      DCA levels and formula are fixed by the trading strategy.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Order</h2>
+    <input value="LIMIT_MAKER / Maker Only" disabled>
+    <p class="info">
+      Orders are always maker-only.
+    </p>
+  </div>
+
+  <div class="card">
+    <button id="save">Save Configuration</button>
+    <div id="status"></div>
+  </div>
+</div>
+
+<script>
+const AVAILABLE_SYMBOLS = [
+  "BTCUSDT",
+  "ETHUSDT",
+  "BNBUSDT",
+  "SOLUSDT",
+  "TRXUSDT"
+];
+
+let currentConfig = null;
+
+const symbolsElement =
+  document.getElementById("symbols");
+
+function renderSymbols(selected) {
+  symbolsElement.innerHTML = "";
+
+  for (const symbol of AVAILABLE_SYMBOLS) {
+    const label = document.createElement("label");
+    label.className = "symbol";
+
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = symbol;
+    input.checked = selected.includes(symbol);
+
+    label.appendChild(input);
+    label.appendChild(
+      document.createTextNode(symbol)
+    );
+
+    symbolsElement.appendChild(label);
+  }
+}
+
+function showStatus(message, success) {
+  const element =
+    document.getElementById("status");
+
+  element.textContent = message;
+  element.style.display = "block";
+  element.style.background =
+    success ? "#d5f5e3" : "#fadbd8";
+  element.style.color =
+    success ? "#196f3d" : "#922b21";
+}
+
+async function loadConfig() {
+  try {
+    const response =
+      await fetch("/api/config");
+
+    if (!response.ok) {
+      throw new Error("Failed to load configuration");
+    }
+
+    const data = await response.json();
+    currentConfig = data.config;
+
+    document.getElementById("version")
+      .textContent = data.version;
+
+    document.getElementById("takeProfit")
+      .value = currentConfig.takeProfit;
+
+    document.getElementById("stopLoss")
+      .value = currentConfig.stopLoss;
+
+    document.getElementById("dcaLevels")
+      .value = currentConfig.dca.levels;
+
+    document.getElementById("dcaFormula")
+      .value = currentConfig.dca.formula;
+
+    renderSymbols(currentConfig.symbols);
+  } catch (error) {
+    showStatus(error.message, false);
+  }
+}
+
+async function saveConfig() {
+  const button =
+    document.getElementById("save");
+
+  button.disabled = true;
+
+  try {
+    const symbols = [
+      ...symbolsElement.querySelectorAll(
+        'input[type="checkbox"]:checked'
+      )
+    ].map((input) => input.value);
+
+    const config = structuredClone(currentConfig);
+
+    config.symbols = symbols;
+    config.takeProfit =
+      Number(document.getElementById("takeProfit").value);
+    config.stopLoss =
+      Number(document.getElementById("stopLoss").value);
+
+    const response = await fetch(
+      "/api/config",
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(config)
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error || "Configuration update failed"
+      );
+    }
+
+    currentConfig = data.config;
+
+    document.getElementById("version")
+      .textContent = data.version;
+
+    showStatus(
+      "Configuration saved. It will apply to new cycles only.",
+      true
+    );
+  } catch (error) {
+    showStatus(error.message, false);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+document
+  .getElementById("save")
+  .addEventListener("click", saveConfig);
+
+loadConfig();
+</script>
+</body>
+</html>

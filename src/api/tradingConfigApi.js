@@ -1,4 +1,12 @@
 import http from "node:http";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const PUBLIC_DIR = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "public",
+);
 
 export default class TradingConfigApi {
   constructor({
@@ -56,6 +64,27 @@ export default class TradingConfigApi {
       request.url ?? "/",
       `http://${this.host}:${this.port}`,
     );
+
+    if (
+      request.method === "GET" &&
+      (url.pathname === "/" ||
+        url.pathname === "/config")
+    ) {
+      const filePath = path.join(
+        PUBLIC_DIR,
+        "config.html",
+      );
+
+      const body = fs.readFileSync(filePath);
+
+      response.writeHead(200, {
+        "Content-Type": "text/html; charset=utf-8",
+        "Content-Length": body.length,
+      });
+
+      response.end(body);
+      return;
+    }
 
     if (request.method === "GET" && url.pathname === "/api/config") {
       this.sendJson(
