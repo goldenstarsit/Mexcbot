@@ -1,8 +1,10 @@
 export default class TradingCapitalReservationService {
   constructor() {
     this.reservedUsdt = 0;
+    this.activeReservations = new Map();
     this.pendingReservations = [];
     this.sequence = 0;
+    this.reservationId = 0;
     this.drainScheduled = false;
   }
 
@@ -16,29 +18,57 @@ export default class TradingCapitalReservationService {
 
   reserve(amount) {
     const value = this.validateAmount(amount);
+    const id = `reservation-${++this.reservationId}`;
 
     this.reservedUsdt += value;
+    this.activeReservations.set(id, value);
 
     return {
+      id,
       reserved: true,
       amount: value,
       totalReservedUsdt: this.reservedUsdt,
     };
   }
 
-  release(amount) {
-    const value = this.validateAmount(amount);
+  release(reservation) {
+    if (!reservation) {
+      return {
+        released: false,
+        amount: 0,
+        totalReservedUsdt: this.reservedUsdt,
+        reason: "RESERVATION_NOT_FOUND",
+      };
+    }
 
+    const id =
+      typeof reservation === "string"
+        ? reservation
+        : reservation.id;
+
+    if (!id || !this.activeReservations.has(id)) {
+      return {
+        released: false,
+        amount: 0,
+        totalReservedUsdt: this.reservedUsdt,
+        reason: "RESERVATION_NOT_FOUND",
+      };
+    }
+
+    const amount = this.activeReservations.get(id);
+
+    this.activeReservations.delete(id);
     this.reservedUsdt = Math.max(
       0,
-      this.reservedUsdt - value,
+      this.reservedUsdt - amount,
     );
 
     this.scheduleDrain();
 
     return {
       released: true,
-      amount: value,
+      id,
+      amount,
       totalReservedUsdt: this.reservedUsdt,
     };
   }
@@ -90,7 +120,13 @@ export default class TradingCapitalReservationService {
       return false;
     }
 
+    const request = this.pendingReservations[index];
+
     this.pendingReservations.splice(index, 1);
+    request.reject(
+      new Error("Reservation acquisition cancelled"),
+    );
+
     return true;
   }
 
@@ -133,12 +169,13 @@ export default class TradingCapitalReservationService {
         continue;
       }
 
-      this.reserve(request.requiredUsdt);
+      const reservation = this.reserve(
+        request.requiredUsdt,
+      );
 
       request.resolve({
         ...result,
-        reserved: true,
-        totalReservedUsdt: this.reservedUsdt,
+        ...reservation,
       });
     }
 

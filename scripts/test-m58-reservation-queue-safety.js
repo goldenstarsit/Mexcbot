@@ -4,16 +4,16 @@ const reservation = new TradingCapitalReservationService();
 
 const order = [];
 
-reservation.reserve(3);
+const initialReservation = reservation.reserve(3);
 
-const blockedLarge = reservation.acquire(3, 3, 1).then(() => {
+const blockedLarge = reservation.acquire(3, 3, 1).then((result) => {
   order.push("3-USDT");
-  reservation.release(3);
+  reservation.release(result);
 });
 
-const blockedSmall = reservation.acquire(3, 1, 2).then(() => {
+const blockedSmall = reservation.acquire(3, 1, 2).then((result) => {
   order.push("1-USDT");
-  reservation.release(1);
+  reservation.release(result);
 });
 
 await new Promise((resolve) => setImmediate(resolve));
@@ -28,7 +28,7 @@ if (reservation.getReservedUsdt() !== 3) {
   );
 }
 
-reservation.release(3);
+reservation.release(initialReservation);
 
 await Promise.all([blockedLarge, blockedSmall]);
 
@@ -48,8 +48,10 @@ if (reservation.getReservedUsdt() !== 0) {
 
 const negativeProtection = new TradingCapitalReservationService();
 
-negativeProtection.reserve(1);
-negativeProtection.release(5);
+const negativeReservation = negativeProtection.reserve(1);
+
+negativeProtection.release(negativeReservation);
+negativeProtection.release(negativeReservation);
 
 if (negativeProtection.getReservedUsdt() !== 0) {
   throw new Error("Reservation balance must never become negative");

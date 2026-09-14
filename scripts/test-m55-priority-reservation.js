@@ -4,24 +4,24 @@ const reservation = new TradingCapitalReservationService();
 
 const order = [];
 
-const high = reservation.acquire(5, 3).then(() => {
+const high = reservation.acquire(5, 3).then((result) => {
   order.push("3-USDT");
-  reservation.release(3);
+  reservation.release(result);
 });
 
-const low = reservation.acquire(5, 1).then(() => {
+const low = reservation.acquire(5, 1).then((result) => {
   order.push("1-USDT");
-  reservation.release(1);
+  reservation.release(result);
 });
 
-const equalFirst = reservation.acquire(5, 2).then(() => {
+const equalFirst = reservation.acquire(5, 2).then((result) => {
   order.push("2-USDT-FIRST");
-  reservation.release(2);
+  reservation.release(result);
 });
 
-const equalSecond = reservation.acquire(5, 2).then(() => {
+const equalSecond = reservation.acquire(5, 2).then((result) => {
   order.push("2-USDT-SECOND");
-  reservation.release(2);
+  reservation.release(result);
 });
 
 await Promise.all([

@@ -328,7 +328,7 @@ export default class DuplicateProtectionService {
       });
     } catch (error) {
       this.tradingCapitalReservationService.release(
-        requiredUsdt,
+        reservation,
       );
 
       this.orderIntentRepository.markRecoveryRequired(
@@ -339,7 +339,7 @@ export default class DuplicateProtectionService {
     }
 
     this.tradingCapitalReservationService.release(
-      requiredUsdt,
+      reservation,
     );
 
     const exchangeOrderId = String(
