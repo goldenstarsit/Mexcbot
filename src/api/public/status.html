@@ -56,6 +56,8 @@
     <div class="card"><div class="label">MEXC Latency</div><div id="mexcLatency" class="value">—</div></div>
     <div class="card"><div class="label">MEXC Account</div><div id="mexcAccount" class="value">—</div></div>
     <div class="card"><div class="label">Account Trading</div><div id="mexcCanTrade" class="value">—</div></div>
+    <div class="card"><div class="label">USDT Free</div><div id="mexcUsdtFree" class="value">—</div></div>
+    <div class="card"><div class="label">Trading Ready</div><div id="mexcTradingReady" class="value">—</div></div>
   </div>
 
   <div class="grid">
@@ -140,6 +142,29 @@ async function loadStatus(){
           ? "DISABLED"
           : "—",
       account?.canTrade === true ? "ok" : account?.canTrade === false ? "bad" : ""
+    );
+
+    set(
+      "mexcUsdtFree",
+      account?.usdt?.free ?? "—"
+    );
+
+    set(
+      "mexcTradingReady",
+      account?.tradingReady === true
+        ? "READY"
+        : account?.status === "DISABLED"
+          ? "DISABLED"
+          : account?.tradingReady === false
+            ? "NOT READY"
+            : "—",
+      account?.tradingReady === true
+        ? "ok"
+        : account?.status === "DISABLED"
+          ? ""
+          : account?.tradingReady === false
+            ? "bad"
+            : ""
     );
 
     set("totalCycles",d.cycles.total);

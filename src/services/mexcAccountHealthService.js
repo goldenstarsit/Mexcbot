@@ -17,6 +17,11 @@ export default class MexcAccountHealthService {
         status: "DISABLED",
         connected: false,
         authenticated: false,
+        usdt: {
+          free: "0",
+          locked: "0",
+        },
+        tradingReady: false,
         reason: "MEXC API credentials are not configured",
         checkedAt: new Date().toISOString(),
       };
@@ -43,6 +48,23 @@ export default class MexcAccountHealthService {
           locked: balance.locked,
         }));
 
+      const usdtBalance =
+        balances.find((balance) => balance.asset === "USDT") ?? null;
+
+      const usdt = usdtBalance
+        ? {
+            free: usdtBalance.free ?? "0",
+            locked: usdtBalance.locked ?? "0",
+          }
+        : {
+            free: "0",
+            locked: "0",
+          };
+
+      const tradingReady =
+        response.canTrade === true &&
+        Number(usdt.free) >= 1;
+
       return {
         status: "OK",
         connected: true,
@@ -51,6 +73,8 @@ export default class MexcAccountHealthService {
         canTrade: response.canTrade ?? null,
         canWithdraw: response.canWithdraw ?? null,
         canDeposit: response.canDeposit ?? null,
+        usdt,
+        tradingReady,
         nonZeroBalances,
         balanceCount: nonZeroBalances.length,
         latencyMs: Date.now() - startedAt,
