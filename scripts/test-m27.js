@@ -8,18 +8,24 @@ const repository = {
     return [
       {
         id: 1,
+        trading_cycle_id: 1,
+        dca_order_id: 101,
         exchange_order_id: "order-consistent",
         symbol: "BTCUSDT",
         status: "NEW",
       },
       {
         id: 2,
+        trading_cycle_id: 2,
+        dca_order_id: null,
         exchange_order_id: "order-filled",
         symbol: "ETHUSDT",
         status: "ORDER_PLACED",
       },
       {
         id: 3,
+        trading_cycle_id: 3,
+        dca_order_id: null,
         exchange_order_id: "order-error",
         symbol: "BNBUSDT",
         status: "NEW",
@@ -92,6 +98,60 @@ const service = new ExchangeReconciliationService({
   mexcClient,
   exchangeOrderRepository: repository,
   exchangeOrderFillMonitorService,
+
+  tradingCycleRepository: {
+    findById(id) {
+      const cycles = {
+        1: {
+          id: 1,
+          symbol: "BTCUSDT",
+        },
+        2: {
+          id: 2,
+          symbol: "ETHUSDT",
+        },
+        3: {
+          id: 3,
+          symbol: "BNBUSDT",
+        },
+      };
+
+      return cycles[id] ?? null;
+    },
+  },
+
+  dcaOrderRepository: {
+    findById(id) {
+      if (id === null || id === undefined) {
+        return null;
+      }
+
+      if (id === 101) {
+        return {
+          id: 101,
+          trading_cycle_id: 1,
+          symbol: "BTCUSDT",
+        };
+      }
+
+      return null;
+    },
+  },
+
+  fillRepository: {
+    findByExchangeOrderId(id) {
+      if (id === 2) {
+        return [
+          {
+            id: 201,
+            exchange_order_id: 2,
+          },
+        ];
+      }
+
+      return [];
+    },
+  },
 });
 
 const result = await service.reconcile();

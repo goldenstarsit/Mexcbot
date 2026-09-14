@@ -6,6 +6,10 @@ import TradingCycleRepository from "../src/database/repositories/tradingCycleRep
 import tradingConfig from "../src/config/trading.config.js";
 import "../src/database/migrations/index.js";
 
+db.prepare(
+  "DELETE FROM runtime_trading_config WHERE id = 1",
+).run();
+
 const runtimeRepository =
   new RuntimeTradingConfigRepository();
 
