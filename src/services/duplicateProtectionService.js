@@ -4,11 +4,15 @@ export default class DuplicateProtectionService {
     exchangeOrderRepository,
     makerOrderEngine,
     orderIntentRepository,
+    tradingCapitalGuard,
+    mexcAccountHealthService,
   }) {
     this.mexcClient = mexcClient;
     this.exchangeOrderRepository = exchangeOrderRepository;
     this.makerOrderEngine = makerOrderEngine;
     this.orderIntentRepository = orderIntentRepository;
+    this.tradingCapitalGuard = tradingCapitalGuard;
+    this.mexcAccountHealthService = mexcAccountHealthService;
   }
 
   createClientOrderId({ cycleId, kind, id = null }) {
@@ -218,6 +222,69 @@ export default class DuplicateProtectionService {
         source: "EXCHANGE",
         exchangeOrder,
       };
+    }
+
+    if (!this.tradingCapitalGuard) {
+      throw new Error("Trading capital guard is required for BUY orders");
+    }
+
+    if (!this.mexcAccountHealthService) {
+      throw new Error(
+        "MEXC account health service is required for BUY orders",
+      );
+    }
+
+    const account = await this.mexcAccountHealthService.check();
+
+    if (account.status !== "OK" || account.authenticated !== true) {
+      const reason =
+        account.reason ??
+        account.error ??
+        "MEXC account is not available";
+
+      const error = new Error(
+        `Trading capital unavailable: ${reason}`,
+      );
+
+      this.orderIntentRepository.markRecoveryRequired(
+        orderIntent.id,
+        error,
+      );
+
+      throw error;
+    }
+
+    if (account.canTrade !== true) {
+      const error = new Error(
+        "Trading capital unavailable: MEXC account cannot trade",
+      );
+
+      this.orderIntentRepository.markRecoveryRequired(
+        orderIntent.id,
+        error,
+      );
+
+      throw error;
+    }
+
+    const requiredUsdt = Number(quantity) * Number(price);
+
+    const capital = this.tradingCapitalGuard.canPlaceBuy(
+      account.usdt?.free,
+      requiredUsdt,
+    );
+
+    if (!capital.allowed) {
+      const error = new Error(
+        `Insufficient free USDT: required ${capital.requiredUsdt}, available ${capital.availableUsdt}`,
+      );
+
+      this.orderIntentRepository.markRecoveryRequired(
+        orderIntent.id,
+        error,
+      );
+
+      throw error;
     }
 
     let order;

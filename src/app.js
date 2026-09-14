@@ -25,6 +25,7 @@ import DcaCalculator from "./services/dcaCalculator.js";
 import QuantityCalculator from "./services/quantityCalculator.js";
 import MakerOrderEngine from "./services/makerOrderEngine.js";
 import DuplicateProtectionService from "./services/duplicateProtectionService.js";
+import TradingCapitalGuard from "./services/tradingCapitalGuard.js";
 import DcaOrderManager from "./services/dcaOrderManager.js";
 import PositionCalculator from "./services/positionCalculator.js";
 import PositionProtectionService from "./services/positionProtectionService.js";
@@ -83,6 +84,8 @@ const fillRepository = new FillRepository();
 const dcaCalculator = new DcaCalculator(tradingConfig);
 const quantityCalculator = new QuantityCalculator(1);
 
+const tradingCapitalGuard = new TradingCapitalGuard();
+
 const makerOrderEngine = new MakerOrderEngine(
   mexcClient,
   tradingConfig,
@@ -94,6 +97,8 @@ const duplicateProtectionService =
     exchangeOrderRepository,
     makerOrderEngine,
     orderIntentRepository,
+    tradingCapitalGuard,
+    mexcAccountHealthService,
   });
 
 const dcaOrderManager = new DcaOrderManager({

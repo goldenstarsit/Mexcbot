@@ -1,6 +1,7 @@
 import db from "../src/database/connection.js";
 import OrderIntentRepository from "../src/database/repositories/OrderIntentRepository.js";
 import DuplicateProtectionService from "../src/services/duplicateProtectionService.js";
+import TradingCapitalGuard from "../src/services/tradingCapitalGuard.js";
 
 const unique = Date.now();
 
@@ -90,6 +91,20 @@ const service = new DuplicateProtectionService({
   exchangeOrderRepository,
   makerOrderEngine,
   orderIntentRepository,
+  tradingCapitalGuard: new TradingCapitalGuard(),
+  mexcAccountHealthService: {
+    async check() {
+      return {
+        status: "OK",
+        authenticated: true,
+        canTrade: true,
+        usdt: {
+          free: "100",
+          locked: "0",
+        },
+      };
+    },
+  },
 });
 
 const successClientOrderId =
