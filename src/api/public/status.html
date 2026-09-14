@@ -54,6 +54,8 @@
     <div class="card"><div class="label">MEXC Symbol</div><div id="mexcSymbol" class="value">—</div></div>
     <div class="card"><div class="label">MEXC Price</div><div id="mexcPrice" class="value">—</div></div>
     <div class="card"><div class="label">MEXC Latency</div><div id="mexcLatency" class="value">—</div></div>
+    <div class="card"><div class="label">MEXC Account</div><div id="mexcAccount" class="value">—</div></div>
+    <div class="card"><div class="label">Account Trading</div><div id="mexcCanTrade" class="value">—</div></div>
   </div>
 
   <div class="grid">
@@ -118,6 +120,26 @@ async function loadStatus(){
     set(
       "mexcLatency",
       mexc?.latencyMs !== undefined ? `${mexc.latencyMs} ms` : "—"
+    );
+
+    const account = d.mexcAccount;
+    const accountEnabled =
+      account?.status === "OK" && account?.authenticated;
+
+    set(
+      "mexcAccount",
+      account?.status ?? "—",
+      accountEnabled ? "ok" : account?.status === "DISABLED" ? "" : "bad"
+    );
+
+    set(
+      "mexcCanTrade",
+      account?.canTrade === true
+        ? "ENABLED"
+        : account?.canTrade === false
+          ? "DISABLED"
+          : "—",
+      account?.canTrade === true ? "ok" : account?.canTrade === false ? "bad" : ""
     );
 
     set("totalCycles",d.cycles.total);

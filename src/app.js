@@ -10,6 +10,7 @@ import MexcClient from "./exchange/mexcClient.js";
 import MarketPriceService from "./exchange/marketPriceService.js";
 import MexcSymbolRules from "./exchange/mexcSymbolRules.js";
 import MexcHealthService from "./services/mexcHealthService.js";
+import MexcAccountHealthService from "./services/mexcAccountHealthService.js";
 
 import TradingCycleRepository from "./database/repositories/tradingCycleRepository.js";
 import RuntimeTradingConfigRepository from "./database/repositories/runtimeTradingConfigRepository.js";
@@ -66,6 +67,11 @@ const mexcHealthService = new MexcHealthService({
   mexcClient,
   tradingConfigService,
 });
+
+const mexcAccountHealthService =
+  new MexcAccountHealthService({
+    mexcClient,
+  });
 
 const tradingCycleRepository = new TradingCycleRepository();
 
@@ -241,6 +247,7 @@ const botStatusService = new BotStatusService({
   tradingConfigService,
   tradingCycleRepository,
   mexcHealthService,
+  mexcAccountHealthService,
   db,
   runners: {
     orderPolling: pollingRunner,

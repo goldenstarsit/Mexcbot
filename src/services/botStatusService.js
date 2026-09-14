@@ -3,6 +3,7 @@ export default class BotStatusService {
     tradingConfigService,
     tradingCycleRepository,
     mexcHealthService,
+    mexcAccountHealthService,
     db,
     runners = {},
   }) {
@@ -18,12 +19,17 @@ export default class BotStatusService {
       throw new Error("MEXC health service is required");
     }
 
+    if (!mexcAccountHealthService) {
+      throw new Error("MEXC account health service is required");
+    }
+
     if (!db) {
       throw new Error("Database connection is required");
     }
 
     this.tradingConfigService = tradingConfigService;
     this.mexcHealthService = mexcHealthService;
+    this.mexcAccountHealthService = mexcAccountHealthService;
     this.tradingCycleRepository = tradingCycleRepository;
     this.db = db;
     this.runners = runners;
@@ -65,6 +71,8 @@ export default class BotStatusService {
     }
 
     const mexc = await this.mexcHealthService.check();
+    const mexcAccount =
+      await this.mexcAccountHealthService.check();
 
     return {
       status: "OK",
@@ -75,6 +83,7 @@ export default class BotStatusService {
         sqliteVersion: sqlite,
       },
       mexc,
+      mexcAccount,
       runtimeConfig: {
         version: runtimeConfig.version,
         symbols: runtimeConfig.config.symbols,
