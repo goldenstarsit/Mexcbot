@@ -2,6 +2,7 @@ export default class BotStatusService {
   constructor({
     tradingConfigService,
     tradingCycleRepository,
+    mexcHealthService,
     db,
     runners = {},
   }) {
@@ -13,18 +14,23 @@ export default class BotStatusService {
       throw new Error("Trading cycle repository is required");
     }
 
+    if (!mexcHealthService) {
+      throw new Error("MEXC health service is required");
+    }
+
     if (!db) {
       throw new Error("Database connection is required");
     }
 
     this.tradingConfigService = tradingConfigService;
+    this.mexcHealthService = mexcHealthService;
     this.tradingCycleRepository = tradingCycleRepository;
     this.db = db;
     this.runners = runners;
     this.startedAt = new Date().toISOString();
   }
 
-  getStatus() {
+  async getStatus() {
     const runtimeConfig =
       this.tradingConfigService.getCurrent();
 
@@ -58,6 +64,8 @@ export default class BotStatusService {
           : false;
     }
 
+    const mexc = await this.mexcHealthService.check();
+
     return {
       status: "OK",
       environment: process.env.NODE_ENV ?? "development",
@@ -66,6 +74,7 @@ export default class BotStatusService {
         connected: this.db.open,
         sqliteVersion: sqlite,
       },
+      mexc,
       runtimeConfig: {
         version: runtimeConfig.version,
         symbols: runtimeConfig.config.symbols,

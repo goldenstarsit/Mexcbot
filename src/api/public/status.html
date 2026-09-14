@@ -50,6 +50,13 @@
   </div>
 
   <div class="grid">
+    <div class="card"><div class="label">MEXC Connectivity</div><div id="mexcConnection" class="value">—</div></div>
+    <div class="card"><div class="label">MEXC Symbol</div><div id="mexcSymbol" class="value">—</div></div>
+    <div class="card"><div class="label">MEXC Price</div><div id="mexcPrice" class="value">—</div></div>
+    <div class="card"><div class="label">MEXC Latency</div><div id="mexcLatency" class="value">—</div></div>
+  </div>
+
+  <div class="grid">
     <div class="card"><div class="label">Total Cycles</div><div id="totalCycles" class="value">—</div></div>
     <div class="card"><div class="label">Open</div><div id="openCycles" class="value">—</div></div>
     <div class="card"><div class="label">Exit Pending</div><div id="exitPending" class="value">—</div></div>
@@ -99,6 +106,19 @@ async function loadStatus(){
     set("environment",d.environment);
     set("liveTrading",d.liveTrading?"ENABLED":"DISABLED",d.liveTrading?"ok":"warn");
     set("database",d.database.connected?"CONNECTED":"DISCONNECTED",d.database.connected?"ok":"bad");
+
+    const mexc=d.mexc;
+    set(
+      "mexcConnection",
+      mexc?.connected ? "CONNECTED" : "DISCONNECTED",
+      mexc?.connected ? "ok" : "bad"
+    );
+    set("mexcSymbol",mexc?.symbol ?? "—");
+    set("mexcPrice",mexc?.price ?? "—");
+    set(
+      "mexcLatency",
+      mexc?.latencyMs !== undefined ? `${mexc.latencyMs} ms` : "—"
+    );
 
     set("totalCycles",d.cycles.total);
     set("openCycles",d.cycles.open);

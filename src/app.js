@@ -9,6 +9,7 @@ import "./database/migrations/index.js";
 import MexcClient from "./exchange/mexcClient.js";
 import MarketPriceService from "./exchange/marketPriceService.js";
 import MexcSymbolRules from "./exchange/mexcSymbolRules.js";
+import MexcHealthService from "./services/mexcHealthService.js";
 
 import TradingCycleRepository from "./database/repositories/tradingCycleRepository.js";
 import RuntimeTradingConfigRepository from "./database/repositories/runtimeTradingConfigRepository.js";
@@ -61,6 +62,10 @@ validateTradingConfig(runtimeConfig.config);
 const mexcClient = new MexcClient();
 const marketPriceService = new MarketPriceService(mexcClient);
 const symbolRulesService = new MexcSymbolRules(mexcClient);
+const mexcHealthService = new MexcHealthService({
+  mexcClient,
+  tradingConfigService,
+});
 
 const tradingCycleRepository = new TradingCycleRepository();
 
@@ -235,6 +240,7 @@ const exchangeReconciliationRunner =
 const botStatusService = new BotStatusService({
   tradingConfigService,
   tradingCycleRepository,
+  mexcHealthService,
   db,
   runners: {
     orderPolling: pollingRunner,

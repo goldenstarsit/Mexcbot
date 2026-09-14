@@ -136,7 +136,7 @@ export default class TradingConfigApi {
       this.sendJson(
         response,
         200,
-        this.botStatusService.getStatus(),
+        await this.botStatusService.getStatus(),
       );
       return;
     }
