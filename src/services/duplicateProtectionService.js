@@ -6,6 +6,7 @@ export default class DuplicateProtectionService {
     orderIntentRepository,
     tradingCapitalGuard,
     mexcAccountHealthService,
+    tradingCapitalReservationService,
   }) {
     this.mexcClient = mexcClient;
     this.exchangeOrderRepository = exchangeOrderRepository;
@@ -13,6 +14,8 @@ export default class DuplicateProtectionService {
     this.orderIntentRepository = orderIntentRepository;
     this.tradingCapitalGuard = tradingCapitalGuard;
     this.mexcAccountHealthService = mexcAccountHealthService;
+    this.tradingCapitalReservationService =
+      tradingCapitalReservationService;
   }
 
   createClientOrderId({ cycleId, kind, id = null }) {
@@ -140,6 +143,9 @@ export default class DuplicateProtectionService {
     clientOrderId,
     purpose = null,
   }) {
+    const triggerSequence =
+      this.tradingCapitalReservationService?.nextSequence?.() ?? null;
+
     const existing = await this.findExisting({
       symbol,
       clientOrderId,
@@ -279,11 +285,40 @@ export default class DuplicateProtectionService {
         `Insufficient free USDT: required ${capital.requiredUsdt}, available ${capital.availableUsdt}`,
       );
 
-      this.orderIntentRepository.markRecoveryRequired(
+      this.orderIntentRepository.markFailed(
         orderIntent.id,
         error,
       );
 
+      throw error;
+    }
+
+    if (!this.tradingCapitalReservationService) {
+      throw new Error(
+        "Trading capital reservation service is required for BUY orders",
+      );
+    }
+
+    if (!this.tradingCapitalReservationService) {
+      throw new Error(
+        "Trading capital reservation service is required for BUY orders",
+      );
+    }
+
+    let reservation;
+
+    try {
+      reservation =
+        await this.tradingCapitalReservationService.acquire(
+          account.usdt.free,
+          requiredUsdt,
+          triggerSequence,
+        );
+    } catch (error) {
+      this.orderIntentRepository.markFailed(
+        orderIntent.id,
+        error,
+      );
       throw error;
     }
 
@@ -298,12 +333,20 @@ export default class DuplicateProtectionService {
         clientOrderId,
       });
     } catch (error) {
+      this.tradingCapitalReservationService.release(
+        requiredUsdt,
+      );
+
       this.orderIntentRepository.markRecoveryRequired(
         orderIntent.id,
         error,
       );
       throw error;
     }
+
+    this.tradingCapitalReservationService.release(
+      requiredUsdt,
+    );
 
     const exchangeOrderId = String(
       order.orderId ??

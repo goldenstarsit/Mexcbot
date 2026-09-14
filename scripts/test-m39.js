@@ -2,6 +2,7 @@ import db from "../src/database/connection.js";
 import OrderIntentRepository from "../src/database/repositories/OrderIntentRepository.js";
 import DuplicateProtectionService from "../src/services/duplicateProtectionService.js";
 import TradingCapitalGuard from "../src/services/tradingCapitalGuard.js";
+import TradingCapitalReservationService from "../src/services/tradingCapitalReservationService.js";
 
 const unique = Date.now();
 
@@ -92,6 +93,7 @@ const service = new DuplicateProtectionService({
   makerOrderEngine,
   orderIntentRepository,
   tradingCapitalGuard: new TradingCapitalGuard(),
+  tradingCapitalReservationService: new TradingCapitalReservationService(),
   mexcAccountHealthService: {
     async check() {
       return {

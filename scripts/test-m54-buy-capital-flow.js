@@ -1,5 +1,6 @@
 import DuplicateProtectionService from "../src/services/duplicateProtectionService.js";
 import TradingCapitalGuard from "../src/services/tradingCapitalGuard.js";
+import TradingCapitalReservationService from "../src/services/tradingCapitalReservationService.js";
 
 function createService(freeUsdt) {
   let exchangeCalls = 0;
@@ -49,9 +50,12 @@ function createService(freeUsdt) {
       },
       markExchangePlaced() {},
       markResolved() {},
+      markFailed() {},
       markRecoveryRequired() {},
     },
     tradingCapitalGuard: new TradingCapitalGuard(),
+    tradingCapitalReservationService:
+      new TradingCapitalReservationService(),
     mexcAccountHealthService: {
       async check() {
         return {

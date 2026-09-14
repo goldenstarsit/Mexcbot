@@ -26,6 +26,7 @@ import QuantityCalculator from "./services/quantityCalculator.js";
 import MakerOrderEngine from "./services/makerOrderEngine.js";
 import DuplicateProtectionService from "./services/duplicateProtectionService.js";
 import TradingCapitalGuard from "./services/tradingCapitalGuard.js";
+import TradingCapitalReservationService from "./services/tradingCapitalReservationService.js";
 import DcaOrderManager from "./services/dcaOrderManager.js";
 import PositionCalculator from "./services/positionCalculator.js";
 import PositionProtectionService from "./services/positionProtectionService.js";
