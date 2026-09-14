@@ -90,39 +90,45 @@ export default class TradingCapitalReservationService {
     };
   }
 
-  async acquire(availableUsdt, amount, sequence = null) {
+  acquire(availableUsdt, amount, sequence = null) {
     const available = this.validateAvailable(availableUsdt);
     const required = this.validateAmount(amount);
     const requestSequence =
       sequence === null ? this.nextSequence() : sequence;
 
-    return new Promise((resolve, reject) => {
-      this.pendingReservations.push({
+    let request;
+
+    const promise = new Promise((resolve, reject) => {
+      request = {
         availableUsdt: available,
         requiredUsdt: required,
         sequence: requestSequence,
         resolve,
         reject,
-      });
+      };
 
+      this.pendingReservations.push(request);
       this.scheduleDrain();
     });
+
+    promise.cancel = () => this.cancelAcquisition(request);
+
+    return promise;
   }
 
-  cancelAcquisition(reservation) {
-    if (!reservation) {
+  cancelAcquisition(request) {
+    if (!request) {
       return false;
     }
 
-    const index = this.pendingReservations.indexOf(reservation);
+    const index = this.pendingReservations.indexOf(request);
 
     if (index === -1) {
       return false;
     }
 
-    const request = this.pendingReservations[index];
-
     this.pendingReservations.splice(index, 1);
+
     request.reject(
       new Error("Reservation acquisition cancelled"),
     );
