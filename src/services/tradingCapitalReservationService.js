@@ -1,5 +1,15 @@
 export default class TradingCapitalReservationService {
-  constructor() {
+  constructor({ acquisitionTimeoutMs = 30000 } = {}) {
+    if (
+      !Number.isInteger(acquisitionTimeoutMs) ||
+      acquisitionTimeoutMs <= 0
+    ) {
+      throw new Error(
+        "Reservation acquisition timeout must be a positive integer",
+      );
+    }
+
+    this.acquisitionTimeoutMs = acquisitionTimeoutMs;
     this.reservedUsdt = 0;
     this.activeReservations = new Map();
     this.pendingReservations = [];
@@ -105,7 +115,15 @@ export default class TradingCapitalReservationService {
         sequence: requestSequence,
         resolve,
         reject,
+        timeoutHandle: null,
       };
+
+      request.timeoutHandle = setTimeout(() => {
+        this.cancelAcquisition(
+          request,
+          new Error("Reservation acquisition timed out"),
+        );
+      }, this.acquisitionTimeoutMs);
 
       this.pendingReservations.push(request);
       this.scheduleDrain();
@@ -116,7 +134,10 @@ export default class TradingCapitalReservationService {
     return promise;
   }
 
-  cancelAcquisition(request) {
+  cancelAcquisition(
+    request,
+    error = new Error("Reservation acquisition cancelled"),
+  ) {
     if (!request) {
       return false;
     }
@@ -129,9 +150,12 @@ export default class TradingCapitalReservationService {
 
     this.pendingReservations.splice(index, 1);
 
-    request.reject(
-      new Error("Reservation acquisition cancelled"),
-    );
+    if (request.timeoutHandle) {
+      clearTimeout(request.timeoutHandle);
+      request.timeoutHandle = null;
+    }
+
+    request.reject(error);
 
     return true;
   }
@@ -178,6 +202,11 @@ export default class TradingCapitalReservationService {
       const reservation = this.reserve(
         request.requiredUsdt,
       );
+
+      if (request.timeoutHandle) {
+        clearTimeout(request.timeoutHandle);
+        request.timeoutHandle = null;
+      }
 
       request.resolve({
         ...result,
