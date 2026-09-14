@@ -74,11 +74,19 @@ export default class TradingConfigApi {
     if (
       request.method === "GET" &&
       (url.pathname === "/" ||
-        url.pathname === "/config")
+        url.pathname === "/config" ||
+        url.pathname === "/cycles" ||
+        url.pathname === "/history")
     ) {
+      const fileName =
+        url.pathname === "/cycles" ||
+        url.pathname === "/history"
+          ? "cycles.html"
+          : "config.html";
+
       const filePath = path.join(
         PUBLIC_DIR,
-        "config.html",
+        fileName,
       );
 
       const body = fs.readFileSync(filePath);

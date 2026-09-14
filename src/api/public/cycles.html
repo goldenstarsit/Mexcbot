@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b1020">
+  <title>Cycle Performance | MEXCBOT</title>
+  <style>
+    :root {
+      --bg: #070b14;
+      --surface: #0d1322;
+      --surface-2: #11192a;
+      --surface-3: #172136;
+      --border: rgba(255,255,255,.08);
+      --text: #eef3ff;
+      --muted: #8f9bb3;
+      --accent: #6d7cff;
+      --accent-2: #8b5cf6;
+      --green: #25d695;
+      --green-bg: rgba(37,214,149,.10);
+      --red: #ff647c;
+      --red-bg: rgba(255,100,124,.10);
+      --yellow: #f5c451;
+      --shadow: 0 20px 60px rgba(0,0,0,.28);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(109,124,255,.14), transparent 32%),
+        radial-gradient(circle at 90% 10%, rgba(139,92,246,.10), transparent 28%),
+        var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button, select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .shell {
+      width: min(1500px, 100%);
+      margin: auto;
+      padding: 18px 14px 36px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 10px 30px rgba(109,124,255,.25);
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 21px;
+      letter-spacing: -.4px;
+    }
+
+    .subtitle {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .refresh {
+      border: 1px solid var(--border);
+      color: var(--text);
+      background: rgba(255,255,255,.04);
+      border-radius: 12px;
+      padding: 10px 13px;
+      transition: .2s;
+    }
+
+    .refresh:hover {
+      background: rgba(255,255,255,.08);
+      border-color: rgba(109,124,255,.35);
+    }
+
+    .refresh.loading {
+      opacity: .6;
+      pointer-events: none;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .card {
+      background: linear-gradient(145deg, rgba(17,25,42,.96), rgba(11,17,30,.96));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .metric {
+      padding: 15px;
+      min-height: 92px;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .7px;
+    }
+
+    .metric-value {
+      margin-top: 8px;
+      font-size: 21px;
+      font-weight: 750;
+      letter-spacing: -.5px;
+    }
+
+    .green { color: var(--green); }
+    .red { color: var(--red); }
+    .yellow { color: var(--yellow); }
+
+    .controls {
+      padding: 13px;
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 9px;
+      margin-bottom: 16px;
+    }
+
+    .field {
+      min-width: 0;
+    }
+
+    .field label {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      margin: 0 0 5px 2px;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+    }
+
+    select {
+      width: 100%;
+      appearance: none;
+      color: var(--text);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 11px 12px;
+      outline: none;
+    }
+
+    select:focus {
+      border-color: rgba(109,124,255,.6);
+    }
+
+    .clear {
+      align-self: end;
+      height: 41px;
+      border: 0;
+      border-radius: 11px;
+      padding: 0 14px;
+      color: white;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      font-weight: 650;
+    }
+
+    .history-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 16px 16px 13px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .history-title {
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .count {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1050px;
+      border-collapse: collapse;
+    }
+
+    th {
+      padding: 11px 13px;
+      color: var(--muted);
+      background: rgba(255,255,255,.018);
+      text-align: left;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .65px;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 14px 13px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      transition: background .15s;
+      cursor: pointer;
+    }
+
+    tbody tr:hover {
+      background: rgba(109,124,255,.055);
+    }
+
+    .symbol {
+      font-weight: 750;
+    }
+
+    .cycle {
+      color: var(--muted);
+      font-weight: 650;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 5px 8px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .status.closed {
+      color: var(--green);
+      background: var(--green-bg);
+    }
+
+    .status.open {
+      color: var(--yellow);
+      background: rgba(245,196,81,.10);
+    }
+
+    .status.other {
+      color: #aeb8ce;
+      background: rgba(174,184,206,.08);
+    }
+
+    .pnl {
+      font-weight: 750;
+    }
+
+    .empty,
+    .error {
+      padding: 48px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .error {
+      color: var(--red);
+    }
+
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 15px;
+      border-top: 1px solid var(--border);
+    }
+
+    .page-btn {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.035);
+      color: var(--text);
+      border-radius: 10px;
+      min-width: 40px;
+      height: 36px;
+    }
+
+    .page-btn:disabled {
+      opacity: .35;
+      cursor: not-allowed;
+    }
+
+    .page-info {
+      color: var(--muted);
+      font-size: 11px;
+      padding: 0 6px;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 10px;
+      background: rgba(0,0,0,.68);
+      backdrop-filter: blur(8px);
+    }
+
+    .modal-backdrop.show {
+      display: flex;
+    }
+
+    .modal {
+      width: min(700px, 100%);
+      max-height: 90vh;
+      overflow: auto;
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      background: #0d1423;
+      box-shadow: 0 30px 100px rgba(0,0,0,.5);
+    }
+
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .modal-head h2 {
+      margin: 0;
+      font-size: 17px;
+    }
+
+    .close {
+      width: 34px;
+      height: 34px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(255,255,255,.04);
+      color: var(--text);
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 8px;
+    }
+
+    .detail {
+      padding: 11px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255,255,255,.025);
+    }
+
+    .detail-label {
+      color: var(--muted);
+      font-size: 10px;
+      margin-bottom: 5px;
+    }
+
+    .detail-value {
+      font-size: 13px;
+      font-weight: 650;
+      overflow-wrap: anywhere;
+    }
+
+    @media (min-width: 700px) {
+      .shell {
+        padding: 28px 22px 50px;
+      }
+
+      .summary {
+        grid-template-columns: repeat(4, minmax(0,1fr));
+        gap: 12px;
+      }
+
+      .metric {
+        padding: 18px;
+      }
+
+      .controls {
+        grid-template-columns: 220px 180px auto;
+      }
+
+      .modal-backdrop {
+        align-items: center;
+      }
+    }
+
+    @media (min-width: 1100px) {
+      .shell {
+        padding-left: 32px;
+        padding-right: 32px;
+      }
+
+      .summary {
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .metric-value {
+        font-size: 24px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .topbar {
+        align-items: center;
+      }
+
+      .refresh {
+        font-size: 0;
+        width: 42px;
+        padding: 0;
+      }
+
+      .refresh::after {
+        content: "↻";
+        font-size: 20px;
+      }
+
+      .controls {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .clear {
+        grid-column: 1 / -1;
+      }
+
+      .detail-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon">M</div>
+        <div>
+          <h1>Cycle Performance</h1>
+          <div class="subtitle">Trading history &amp; realized performance</div>
+        </div>
+      </div>
+      <button class="refresh" id="refreshBtn" type="button">Refresh</button>
+    </header>
+
+    <section class="summary">
+      <div class="card metric">
+        <div class="metric-label">Cycles</div>
+        <div class="metric-value" id="metricCycles">—</div>
+      </div>
+      <div class="card metric">
+        <div class="metric-label">Invested</div>
+        <div class="metric-value" id="metricInvested">—</div>
+      </div>
+      <div class="card metric">
+        <div class="metric-label">Returned</div>
+        <div class="metric-value" id="metricReturned">—</div>
+      </div>
+      <div class="card metric">
+        <div class="metric-label">Overall P/L</div>
+        <div class="metric-value" id="metricPnl">—</div>
+      </div>
+    </section>
+
+    <section class="card controls">
+      <div class="field">
+        <label for="symbol">Symbol</label>
+        <select id="symbol">
+          <option value="">All symbols</option>
+          <option>BTCUSDT</option>
+          <option>ETHUSDT</option>
+          <option>BNBUSDT</option>
+          <option>SOLUSDT</option>
+          <option>TRXUSDT</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="status">Status</label>
+        <select id="status">
+          <option value="">All statuses</option>
+          <option value="CLOSED">Closed</option>
+          <option value="OPEN">Open</option>
+        </select>
+      </div>
+
+      <button class="clear" id="clearBtn" type="button">Apply Filters</button>
+    </section>
+
+    <section class="card">
+      <div class="history-head">
+        <div class="history-title">Cycle History</div>
+        <div class="count" id="count">Loading…</div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Cycle</th>
+              <th>Status</th>
+              <th>Duration</th>
+              <th>Initial Price</th>
+              <th>Final Price</th>
+              <th>Orders</th>
+              <th>Invested</th>
+              <th>Returned</th>
+              <th>Asset Bought</th>
+              <th>Asset Sold</th>
+              <th>P/L</th>
+              <th>P/L %</th>
+              <th>Created</th>
+              <th>Closed</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="pagination">
+        <button class="page-btn" id="prevBtn" type="button">‹</button>
+        <div class="page-info" id="pageInfo">Page 1</div>
+        <button class="page-btn" id="nextBtn" type="button">›</button>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="modalTitle">Cycle Details</h2>
+        <button class="close" id="closeModal" type="button">×</button>
+      </div>
+      <div class="detail-grid" id="detailGrid"></div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      page: 0,
+      limit: 20,
+      rows: [],
+      total: 0
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function num(value, digits = 6) {
+      if (value === null || value === undefined || value === "") return "—";
+      const n = Number(value);
+      if (!Number.isFinite(n)) return "—";
+      return n.toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: digits
+      });
+    }
+
+    function usdt(value) {
+      if (value === null || value === undefined) return "—";
+      return "$" + num(value, 4);
+    }
+
+    function signed(value, suffix = "") {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return "—";
+      return (n >= 0 ? "+" : "") + num(n, 4) + suffix;
+    }
+
+    function duration(seconds) {
+      if (seconds === null || seconds === undefined) return "—";
+      const total = Math.max(0, Number(seconds));
+      if (!Number.isFinite(total)) return "—";
+
+      const d = Math.floor(total / 86400);
+      const h = Math.floor((total % 86400) / 3600);
+      const m = Math.floor((total % 3600) / 60);
+
+      if (d) return d + "d " + h + "h";
+      if (h) return h + "h " + m + "m";
+      return m + "m";
+    }
+
+    function statusClass(status) {
+      if (status === "CLOSED") return "closed";
+      if (status === "OPEN") return "open";
+      return "other";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function renderRows() {
+      const body = $("tableBody");
+
+      if (!state.rows.length) {
+        body.innerHTML = '<tr><td colspan="15" class="empty">No cycle history found.</td></tr>';
+        return;
+      }
+
+      body.innerHTML = state.rows.map((row, index) => {
+        const pnl = Number(row.overall_pnl ?? 0);
+        const pnlPct = Number(row.overall_pnl_percent ?? 0);
+        const pnlClass = pnl >= 0 ? "green" : "red";
+
+        return `
+          <tr data-index="${index}">
+            <td class="symbol">${escapeHtml(row.symbol)}</td>
+            <td class="cycle">#${escapeHtml(row.cycle_number)}</td>
+            <td><span class="status ${statusClass(row.status)}">${escapeHtml(row.status)}</span></td>
+            <td>${duration(row.duration_seconds)}</td>
+            <td>${num(row.initial_price, 8)}</td>
+            <td>${num(row.final_price, 8)}</td>
+            <td>${num(row.orders_triggered, 0)}</td>
+            <td>${usdt(row.total_usdt_invested)}</td>
+            <td>${usdt(row.total_usdt_returned)}</td>
+            <td>${num(row.total_asset_bought, 8)}</td>
+            <td>${num(row.total_asset_sold, 8)}</td>
+            <td class="pnl ${pnlClass}">${signed(pnl)}</td>
+            <td class="pnl ${pnlClass}">${signed(pnlPct, "%")}</td>
+            <td>${escapeHtml(row.created_at ?? "—")}</td>
+            <td>${escapeHtml(row.closed_at ?? "—")}</td>
+          </tr>
+        `;
+      }).join("");
+
+      body.querySelectorAll("tr[data-index]").forEach((tr) => {
+        tr.addEventListener("click", () => openDetails(state.rows[Number(tr.dataset.index)]));
+      });
+    }
+
+    function renderPagination() {
+      const pages = Math.max(1, Math.ceil(state.total / state.limit));
+      const current = state.page + 1;
+
+      $("pageInfo").textContent = `Page ${current} of ${pages}`;
+      $("prevBtn").disabled = state.page <= 0;
+      $("nextBtn").disabled = current >= pages;
+      $("count").textContent = `${state.total.toLocaleString()} cycle${state.total === 1 ? "" : "s"}`;
+    }
+
+    function renderSummary() {
+      const rows = state.rows;
+      const invested = rows.reduce((sum, r) => sum + Number(r.total_usdt_invested || 0), 0);
+      const returned = rows.reduce((sum, r) => sum + Number(r.total_usdt_returned || 0), 0);
+      const pnl = returned - invested;
+
+      $("metricCycles").textContent = state.total.toLocaleString();
+      $("metricInvested").textContent = usdt(invested);
+      $("metricReturned").textContent = usdt(returned);
+
+      const metric = $("metricPnl");
+      metric.textContent = signed(pnl);
+      metric.className = "metric-value " + (pnl >= 0 ? "green" : "red");
+    }
+
+    async function load() {
+      const button = $("refreshBtn");
+      button.classList.add("loading");
+
+      const params = new URLSearchParams({
+        limit: String(state.limit),
+        offset: String(state.page * state.limit)
+      });
+
+      const symbol = $("symbol").value;
+      const status = $("status").value;
+
+      if (symbol) params.set("symbol", symbol);
+      if (status) params.set("status", status);
+
+      $("count").textContent = "Loading…";
+
+      try {
+        const response = await fetch("/api/cycles?" + params.toString(), {
+          headers: { Accept: "application/json" }
+        });
+
+        if (!response.ok) {
+          throw new Error("HTTP " + response.status);
+        }
+
+        const data = await response.json();
+
+        state.rows = Array.isArray(data.cycles)
+          ? data.cycles
+          : Array.isArray(data)
+            ? data
+            : [];
+
+        state.total = Number(data.total ?? state.rows.length);
+
+        renderRows();
+        renderPagination();
+        renderSummary();
+      } catch (error) {
+        $("tableBody").innerHTML =
+          `<tr><td colspan="15" class="error">Unable to load cycle history.</td></tr>`;
+        $("count").textContent = "Request failed";
+        console.error(error);
+      } finally {
+        button.classList.remove("loading");
+      }
+    }
+
+    function openDetails(row) {
+      $("modalTitle").textContent =
+        `${row.symbol} · Cycle #${row.cycle_number}`;
+
+      const pnl = Number(row.overall_pnl ?? 0);
+      const pnlPct = Number(row.overall_pnl_percent ?? 0);
+      const pnlClass = pnl >= 0 ? "green" : "red";
+
+      const details = [
+        ["Status", row.status],
+        ["Duration", duration(row.duration_seconds)],
+        ["Initial Price", num(row.initial_price, 8)],
+        ["Final Price", num(row.final_price, 8)],
+        ["Orders Triggered", num(row.orders_triggered, 0)],
+        ["USDT Invested", usdt(row.total_usdt_invested)],
+        ["USDT Returned", usdt(row.total_usdt_returned)],
+        ["Asset Bought", num(row.total_asset_bought, 8)],
+        ["Asset Sold", num(row.total_asset_sold, 8)],
+        ["Overall P/L", `<span class="${pnlClass}">${signed(pnl)}</span>`],
+        ["Overall P/L %", `<span class="${pnlClass}">${signed(pnlPct, "%")}</span>`],
+        ["Created", row.created_at ?? "—"],
+        ["Closed", row.closed_at ?? "—"]
+      ];
+
+      $("detailGrid").innerHTML = details.map(([label, value]) => `
+        <div class="detail">
+          <div class="detail-label">${escapeHtml(label)}</div>
+          <div class="detail-value">${value}</div>
+        </div>
+      `).join("");
+
+      $("modalBackdrop").classList.add("show");
+    }
+
+    $("refreshBtn").addEventListener("click", load);
+
+    $("clearBtn").addEventListener("click", () => {
+      state.page = 0;
+      load();
+    });
+
+    $("prevBtn").addEventListener("click", () => {
+      if (state.page > 0) {
+        state.page--;
+        load();
+      }
+    });
+
+    $("nextBtn").addEventListener("click", () => {
+      if ((state.page + 1) * state.limit < state.total) {
+        state.page++;
+        load();
+      }
+    });
+
+    $("closeModal").addEventListener("click", () => {
+      $("modalBackdrop").classList.remove("show");
+    });
+
+    $("modalBackdrop").addEventListener("click", (event) => {
+      if (event.target === $("modalBackdrop")) {
+        $("modalBackdrop").classList.remove("show");
+      }
+    });
+
+    load();
+  </script>
+</body>
+</html>

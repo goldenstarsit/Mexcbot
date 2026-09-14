@@ -57,9 +57,22 @@ const runtimeConfig =
 
 validateTradingConfig(runtimeConfig.config);
 
+const tradingConfigApiConfig = {
+  tradingConfigService,
+  host: "127.0.0.1",
+  port: 3000,
+};
+
+const mexcClient = new MexcClient();
+const marketPriceService = new MarketPriceService(mexcClient);
+const symbolRulesService = new MexcSymbolRules(mexcClient);
+
+const tradingCycleRepository = new TradingCycleRepository();
+
 const tradingConfigApi =
   new TradingConfigApi({
     tradingConfigService,
+    tradingCycleRepository,
     host: "127.0.0.1",
     port: 3000,
   });
@@ -70,11 +83,7 @@ console.log(
   "[ConfigAPI] Listening: http://127.0.0.1:3000/api/config",
 );
 
-const mexcClient = new MexcClient();
-const marketPriceService = new MarketPriceService(mexcClient);
-const symbolRulesService = new MexcSymbolRules(mexcClient);
 
-const tradingCycleRepository = new TradingCycleRepository();
 const dcaOrderRepository = new DcaOrderRepository();
 const exchangeOrderRepository = new ExchangeOrderRepository();
 const orderIntentRepository = new OrderIntentRepository();
