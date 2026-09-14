@@ -13,6 +13,7 @@ import MexcSymbolRules from "./exchange/mexcSymbolRules.js";
 import TradingCycleRepository from "./database/repositories/tradingCycleRepository.js";
 import RuntimeTradingConfigRepository from "./database/repositories/runtimeTradingConfigRepository.js";
 import TradingConfigService from "./services/tradingConfigService.js";
+import TradingConfigApi from "./api/tradingConfigApi.js";
 import DcaOrderRepository from "./database/repositories/dcaOrderRepository.js";
 import ExchangeOrderRepository from "./database/repositories/exchangeOrderRepository.js";
 import OrderIntentRepository from "./database/repositories/OrderIntentRepository.js";
@@ -55,6 +56,19 @@ const runtimeConfig =
   tradingConfigService.initialize();
 
 validateTradingConfig(runtimeConfig.config);
+
+const tradingConfigApi =
+  new TradingConfigApi({
+    tradingConfigService,
+    host: "127.0.0.1",
+    port: 3000,
+  });
+
+tradingConfigApi.start();
+
+console.log(
+  "[ConfigAPI] Listening: http://127.0.0.1:3000/api/config",
+);
 
 const mexcClient = new MexcClient();
 const marketPriceService = new MarketPriceService(mexcClient);
@@ -316,13 +330,23 @@ if (!hasApiCredentials) {
   }
 }
 
-function shutdown(signal) {
+async function shutdown(signal) {
   console.log(`[Shutdown] ${signal}`);
+
   pollingRunner.stop();
   exchangeReconciliationRunner.stop();
   terminalOrderRecoveryRunner.stop();
   orderIntentRecoveryRunner.stop();
   exchangeOrphanOrderRecoveryRunner.stop();
+
+  try {
+    await tradingConfigApi.stop();
+  } catch (error) {
+    console.error(
+      "[ConfigAPI] Shutdown failed:",
+      error.message,
+    );
+  }
 
   if (db.open) {
     db.close();
@@ -331,5 +355,10 @@ function shutdown(signal) {
   process.exit(0);
 }
 
-process.on("SIGINT", () => shutdown("SIGINT"));
-process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => {
+  void shutdown("SIGINT");
+});
+
+process.on("SIGTERM", () => {
+  void shutdown("SIGTERM");
+});
