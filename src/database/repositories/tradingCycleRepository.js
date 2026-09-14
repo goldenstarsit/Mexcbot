@@ -285,4 +285,180 @@ export default class TradingCycleRepository {
       `)
       .all(symbol);
   }
+
+  listPerformanceHistory({
+    symbol = null,
+    status = null,
+    limit = 50,
+    offset = 0,
+  } = {}) {
+    const conditions = [];
+    const params = [];
+
+    if (symbol) {
+      conditions.push("symbol = ?");
+      params.push(symbol);
+    }
+
+    if (status) {
+      conditions.push("status = ?");
+      params.push(status);
+    }
+
+    const whereClause = conditions.length
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
+
+    const safeLimit = Math.min(
+      Math.max(Number.parseInt(limit, 10) || 50, 1),
+      100,
+    );
+
+    const safeOffset = Math.max(
+      Number.parseInt(offset, 10) || 0,
+      0,
+    );
+
+    params.push(safeLimit, safeOffset);
+
+    return db
+      .prepare(`
+        SELECT
+          id,
+          symbol,
+          cycle_number,
+          status,
+          created_at,
+          closed_at,
+          duration_seconds,
+          initial_price,
+          final_price,
+          orders_triggered,
+          total_usdt_invested,
+          total_usdt_returned,
+          total_asset_bought,
+          total_asset_sold,
+          overall_pnl,
+          overall_pnl_percent
+        FROM trading_cycles
+        ${whereClause}
+        ORDER BY id DESC
+        LIMIT ? OFFSET ?
+      `)
+      .all(...params);
+  }
+
+  findPerformanceById(id) {
+    return db
+      .prepare(`
+        SELECT
+          id,
+          symbol,
+          cycle_number,
+          status,
+          created_at,
+          closed_at,
+          duration_seconds,
+          initial_price,
+          final_price,
+          orders_triggered,
+          total_usdt_invested,
+          total_usdt_returned,
+          total_asset_bought,
+          total_asset_sold,
+          overall_pnl,
+          overall_pnl_percent
+        FROM trading_cycles
+        WHERE id = ?
+      `)
+      .get(id);
+  }
+
+  listPerformanceHistory({
+    symbol = null,
+    status = null,
+    limit = 50,
+    offset = 0,
+  } = {}) {
+    const conditions = [];
+    const params = [];
+
+    if (symbol) {
+      conditions.push("symbol = ?");
+      params.push(symbol);
+    }
+
+    if (status) {
+      conditions.push("status = ?");
+      params.push(status);
+    }
+
+    const whereClause = conditions.length
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
+
+    const safeLimit = Math.min(
+      Math.max(Number.parseInt(limit, 10) || 50, 1),
+      100,
+    );
+
+    const safeOffset = Math.max(
+      Number.parseInt(offset, 10) || 0,
+      0,
+    );
+
+    params.push(safeLimit, safeOffset);
+
+    return db
+      .prepare(`
+        SELECT
+          id,
+          symbol,
+          cycle_number,
+          status,
+          created_at,
+          closed_at,
+          duration_seconds,
+          initial_price,
+          final_price,
+          orders_triggered,
+          total_usdt_invested,
+          total_usdt_returned,
+          total_asset_bought,
+          total_asset_sold,
+          overall_pnl,
+          overall_pnl_percent
+        FROM trading_cycles
+        ${whereClause}
+        ORDER BY id DESC
+        LIMIT ? OFFSET ?
+      `)
+      .all(...params);
+  }
+
+  findPerformanceById(id) {
+    return db
+      .prepare(`
+        SELECT
+          id,
+          symbol,
+          cycle_number,
+          status,
+          created_at,
+          closed_at,
+          duration_seconds,
+          initial_price,
+          final_price,
+          orders_triggered,
+          total_usdt_invested,
+          total_usdt_returned,
+          total_asset_bought,
+          total_asset_sold,
+          overall_pnl,
+          overall_pnl_percent
+        FROM trading_cycles
+        WHERE id = ?
+      `)
+      .get(id);
+  }
 }

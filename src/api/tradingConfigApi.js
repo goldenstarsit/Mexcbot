@@ -11,6 +11,7 @@ const PUBLIC_DIR = path.join(
 export default class TradingConfigApi {
   constructor({
     tradingConfigService,
+    tradingCycleRepository,
     host = "127.0.0.1",
     port = 3000,
   }) {
@@ -18,11 +19,16 @@ export default class TradingConfigApi {
       throw new Error("Trading config service is required");
     }
 
+    if (tradingCycleRepository !== undefined) {
+      this.tradingCycleRepository = tradingCycleRepository;
+    }
+
     if (!Number.isInteger(port) || port <= 0 || port > 65535) {
       throw new Error("Valid API port is required");
     }
 
     this.tradingConfigService = tradingConfigService;
+    this.tradingCycleRepository = tradingCycleRepository;
     this.host = host;
     this.port = port;
     this.server = null;
@@ -92,6 +98,74 @@ export default class TradingConfigApi {
         200,
         this.tradingConfigService.getCurrent(),
       );
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/cycles") {
+      if (!this.tradingCycleRepository) {
+        this.sendJson(response, 500, {
+          error: "Trading cycle repository is not configured",
+        });
+        return;
+      }
+
+      const limit = url.searchParams.get("limit") ?? 50;
+      const offset = url.searchParams.get("offset") ?? 0;
+      const symbol = url.searchParams.get("symbol");
+      const status = url.searchParams.get("status");
+
+      const cycles =
+        this.tradingCycleRepository.listPerformanceHistory({
+          symbol,
+          status,
+          limit,
+          offset,
+        });
+
+      this.sendJson(response, 200, {
+        cycles,
+        limit: Math.min(
+          Math.max(Number.parseInt(limit, 10) || 50, 1),
+          100,
+        ),
+        offset: Math.max(
+          Number.parseInt(offset, 10) || 0,
+          0,
+        ),
+      });
+
+      return;
+    }
+
+    const cycleMatch =
+      url.pathname.match(/^\/api\/cycles\/(\d+)$/);
+
+    if (request.method === "GET" && cycleMatch) {
+      if (!this.tradingCycleRepository) {
+        this.sendJson(response, 500, {
+          error: "Trading cycle repository is not configured",
+        });
+        return;
+      }
+
+      const cycleId = Number(cycleMatch[1]);
+
+      const cycle =
+        this.tradingCycleRepository.findPerformanceById(
+          cycleId,
+        );
+
+      if (!cycle) {
+        this.sendJson(response, 404, {
+          error: "Cycle not found",
+        });
+        return;
+      }
+
+      this.sendJson(response, 200, {
+        cycle,
+      });
+
       return;
     }
 
