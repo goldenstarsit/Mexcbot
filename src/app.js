@@ -86,6 +86,7 @@ const dcaCalculator = new DcaCalculator(tradingConfig);
 const quantityCalculator = new QuantityCalculator(1);
 
 const tradingCapitalGuard = new TradingCapitalGuard();
+const tradingCapitalReservationService = new TradingCapitalReservationService();
 
 const makerOrderEngine = new MakerOrderEngine(
   mexcClient,
@@ -99,6 +100,7 @@ const duplicateProtectionService =
     makerOrderEngine,
     orderIntentRepository,
     tradingCapitalGuard,
+    tradingCapitalReservationService,
     mexcAccountHealthService,
   });
 
