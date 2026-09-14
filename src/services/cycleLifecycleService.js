@@ -181,12 +181,18 @@ export default class CycleLifecycleService {
       "CLOSED",
     );
 
+    const updatedCycle =
+      this.tradingCycleRepository.updatePerformanceSummary(
+        cycleId,
+      );
+
     return {
       cycleId,
       symbol,
       status: "CLOSED",
       sellFilled: true,
       newCycleReady: true,
+      cycleSummary: updatedCycle,
     };
   }
 

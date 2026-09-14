@@ -121,6 +121,9 @@ export default class TradingCycleExecutionService {
       dcaOrders.push(record);
     }
 
+    const updatedCycle =
+      this.tradingCycleRepository.updatePerformanceSummary(cycleId);
+
     return {
       cycleId,
       symbol,
@@ -129,6 +132,7 @@ export default class TradingCycleExecutionService {
       takeProfit: protection.takeProfit,
       stopLoss: protection.stopLoss,
       stopLossCalculated: true,
+      cycleSummary: updatedCycle,
     };
   }
 
@@ -154,9 +158,14 @@ export default class TradingCycleExecutionService {
       );
     }
 
-    return this.positionProtectionService.calculateAfterDcaFill({
-      fills,
-      config: configSnapshot.config,
-    });
+    const result =
+      this.positionProtectionService.calculateAfterDcaFill({
+        fills,
+        config: configSnapshot.config,
+      });
+
+    this.tradingCycleRepository.updatePerformanceSummary(cycleId);
+
+    return result;
   }
 }

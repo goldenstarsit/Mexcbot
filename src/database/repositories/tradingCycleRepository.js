@@ -51,6 +51,142 @@ export default class TradingCycleRepository {
       .get(id);
   }
 
+  updatePerformanceSummary(cycleId) {
+    const cycle = this.findById(cycleId);
+
+    if (!cycle) {
+      throw new Error(`Trading cycle ${cycleId} not found`);
+    }
+
+    const summary = db
+      .prepare(`
+        SELECT
+          COUNT(DISTINCT CASE
+            WHEN UPPER(f.side) = 'BUY' THEN eo.id
+          END) AS orders_triggered,
+
+          COALESCE(SUM(
+            CASE
+              WHEN UPPER(f.side) = 'BUY'
+              THEN f.price * f.quantity
+              ELSE 0
+            END
+          ), 0) AS total_usdt_invested,
+
+          COALESCE(SUM(
+            CASE
+              WHEN UPPER(f.side) = 'SELL'
+              THEN f.price * f.quantity
+              ELSE 0
+            END
+          ), 0) AS total_usdt_returned,
+
+          COALESCE(SUM(
+            CASE
+              WHEN UPPER(f.side) = 'BUY'
+              THEN f.quantity
+              ELSE 0
+            END
+          ), 0) AS total_asset_bought,
+
+          COALESCE(SUM(
+            CASE
+              WHEN UPPER(f.side) = 'SELL'
+              THEN f.quantity
+              ELSE 0
+            END
+          ), 0) AS total_asset_sold,
+
+          (
+            SELECT f2.price
+            FROM fills f2
+            INNER JOIN exchange_orders eo2
+              ON eo2.id = f2.exchange_order_id
+            WHERE eo2.trading_cycle_id = ?
+              AND UPPER(f2.side) = 'BUY'
+            ORDER BY f2.filled_at ASC, f2.id ASC
+            LIMIT 1
+          ) AS initial_price,
+
+          (
+            SELECT
+              SUM(f3.price * f3.quantity) /
+              NULLIF(SUM(f3.quantity), 0)
+            FROM fills f3
+            INNER JOIN exchange_orders eo3
+              ON eo3.id = f3.exchange_order_id
+            WHERE eo3.trading_cycle_id = ?
+              AND UPPER(f3.side) = 'SELL'
+          ) AS final_price
+        FROM fills f
+        INNER JOIN exchange_orders eo
+          ON eo.id = f.exchange_order_id
+        WHERE eo.trading_cycle_id = ?
+      `)
+      .get(cycleId, cycleId, cycleId);
+
+    const invested = Number(summary.total_usdt_invested ?? 0);
+    const returned = Number(summary.total_usdt_returned ?? 0);
+    const pnl = returned - invested;
+    const pnlPercent =
+      invested > 0
+        ? (pnl / invested) * 100
+        : 0;
+
+    let durationSeconds = cycle.duration_seconds ?? null;
+
+    if (cycle.status === "CLOSED" && cycle.closed_at) {
+      durationSeconds =
+        db
+          .prepare(`
+            SELECT
+              CAST(
+                (
+                  julianday(?) - julianday(?)
+                ) * 86400
+                AS INTEGER
+              ) AS duration_seconds
+          `)
+          .get(cycle.closed_at, cycle.created_at)
+          ?.duration_seconds ?? null;
+    }
+
+    db.prepare(`
+      UPDATE trading_cycles
+      SET
+        duration_seconds = ?,
+        initial_price = ?,
+        final_price = ?,
+        orders_triggered = ?,
+        total_usdt_invested = ?,
+        total_usdt_returned = ?,
+        total_asset_bought = ?,
+        total_asset_sold = ?,
+        overall_pnl = ?,
+        overall_pnl_percent = ?
+      WHERE id = ?
+    `).run(
+      durationSeconds,
+      summary.initial_price === null
+        ? null
+        : Number(summary.initial_price),
+      summary.final_price === null
+        ? null
+        : Number(summary.final_price),
+      Number(summary.orders_triggered ?? 0),
+      invested,
+      returned,
+      Number(summary.total_asset_bought ?? 0),
+      Number(summary.total_asset_sold ?? 0),
+      pnl,
+      pnlPercent,
+      cycleId,
+    );
+
+    return this.findById(cycleId);
+  }
+
+
 
   getConfigSnapshot(id) {
     const cycle = this.findById(id);
