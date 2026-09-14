@@ -2,6 +2,7 @@ export default class ExchangeOrphanOrderRecoveryService {
   constructor({
     mexcClient,
     tradingConfig,
+    tradingConfigService,
     exchangeOrderRepository,
     tradingCycleRepository,
     dcaOrderRepository,
@@ -28,6 +29,7 @@ export default class ExchangeOrphanOrderRecoveryService {
 
     this.mexcClient = mexcClient;
     this.tradingConfig = tradingConfig;
+    this.tradingConfigService = tradingConfigService;
     this.exchangeOrderRepository = exchangeOrderRepository;
     this.tradingCycleRepository = tradingCycleRepository;
     this.dcaOrderRepository = dcaOrderRepository;
@@ -223,7 +225,12 @@ export default class ExchangeOrphanOrderRecoveryService {
   async recover() {
     const results = [];
 
-    for (const symbol of this.tradingConfig.symbols) {
+    const symbols =
+      this.tradingConfigService
+        ? this.tradingConfigService.getCurrent().config.symbols
+        : this.tradingConfig.symbols;
+
+    for (const symbol of symbols) {
       try {
         results.push(
           await this.scanSymbol(symbol),

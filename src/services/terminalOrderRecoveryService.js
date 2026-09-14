@@ -10,6 +10,7 @@ export default class TerminalOrderRecoveryService {
     duplicateProtectionService,
     dcaOrderManager,
     fillRepository,
+    tradingConfigService,
   }) {
     this.tradingCycleRepository = tradingCycleRepository;
     this.dcaOrderRepository = dcaOrderRepository;
@@ -21,15 +22,23 @@ export default class TerminalOrderRecoveryService {
       duplicateProtectionService;
     this.dcaOrderManager = dcaOrderManager;
     this.fillRepository = fillRepository;
-
-    const configuredMaxAttempts =
-      tradingConfig?.terminalRecovery?.maxAttempts;
+    this.tradingConfigService = tradingConfigService;
 
     this.maxAttempts =
-      Number.isInteger(configuredMaxAttempts) &&
+      this.getMaxAttempts();
+  }
+
+  getMaxAttempts() {
+    const configuredMaxAttempts =
+      this.tradingConfigService
+        ? this.tradingConfigService.getCurrent().config
+            ?.terminalRecovery?.maxAttempts
+        : tradingConfig?.terminalRecovery?.maxAttempts;
+
+    return Number.isInteger(configuredMaxAttempts) &&
       configuredMaxAttempts > 0
-        ? configuredMaxAttempts
-        : 5;
+      ? configuredMaxAttempts
+      : 5;
   }
 
   isTerminal(status) {

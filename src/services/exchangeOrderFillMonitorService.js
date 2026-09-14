@@ -7,6 +7,7 @@ export default class ExchangeOrderFillMonitorService {
     fillRepository,
     tradingCycleExecutionService,
     cycleLifecycleService,
+    tradingConfigService,
   }) {
     this.mexcClient = mexcClient;
     this.exchangeOrderRepository = exchangeOrderRepository;
@@ -14,15 +15,23 @@ export default class ExchangeOrderFillMonitorService {
     this.tradingCycleExecutionService =
       tradingCycleExecutionService;
     this.cycleLifecycleService = cycleLifecycleService;
-
-    const configuredMaxAttempts =
-      tradingConfig?.fillProcessing?.maxAttempts;
+    this.tradingConfigService = tradingConfigService;
 
     this.maxFillProcessingAttempts =
-      Number.isInteger(configuredMaxAttempts) &&
+      this.getMaxFillProcessingAttempts();
+  }
+
+  getMaxFillProcessingAttempts() {
+    const configuredMaxAttempts =
+      this.tradingConfigService
+        ? this.tradingConfigService.getCurrent().config
+            ?.fillProcessing?.maxAttempts
+        : tradingConfig?.fillProcessing?.maxAttempts;
+
+    return Number.isInteger(configuredMaxAttempts) &&
       configuredMaxAttempts > 0
-        ? configuredMaxAttempts
-        : 5;
+      ? configuredMaxAttempts
+      : 5;
   }
 
   async checkOrder({ exchangeOrder, symbol }) {
