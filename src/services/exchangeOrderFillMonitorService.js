@@ -97,9 +97,22 @@ export default class ExchangeOrderFillMonitorService {
     exchangeOrder,
     symbol,
     fill,
+    checked,
   }) {
     if (exchangeOrder.side === "BUY") {
-      if (this.isInitialBuy(exchangeOrder)) {
+      const orderFills =
+        this.fillRepository.findByExchangeOrderId(
+          exchangeOrder.id,
+        );
+
+      const isFirstFillOfOrder =
+        orderFills.length === 1 &&
+        Number(orderFills[0].id) === Number(fill.id);
+
+      if (
+        this.isInitialBuy(exchangeOrder) &&
+        isFirstFillOfOrder
+      ) {
         const result =
           await this.tradingCycleExecutionService.processInitialFill({
             cycleId: exchangeOrder.trading_cycle_id,
@@ -125,12 +138,39 @@ export default class ExchangeOrderFillMonitorService {
         });
 
       return {
-        action: "DCA_FILL_PROCESSED",
+        action: "PARTIAL_OR_DCA_FILL_PROCESSED",
         result,
       };
     }
 
     if (exchangeOrder.side === "SELL") {
+      if (checked.status !== "FILLED") {
+        return {
+          action: "PARTIAL_SELL_FILL_RECORDED",
+          result: null,
+        };
+      }
+
+      const orderFills =
+        this.fillRepository.findByExchangeOrderId(
+          exchangeOrder.id,
+        );
+
+      const latestFill =
+        orderFills.length > 0
+          ? orderFills[orderFills.length - 1]
+          : null;
+
+      if (
+        latestFill &&
+        Number(latestFill.id) !== Number(fill.id)
+      ) {
+        return {
+          action: "SELL_FILL_RECORDED",
+          result: null,
+        };
+      }
+
       const result =
         await this.cycleLifecycleService.completeExitAndStartNewCycle({
           cycleId: exchangeOrder.trading_cycle_id,
@@ -164,6 +204,7 @@ export default class ExchangeOrderFillMonitorService {
         exchangeOrder,
         symbol,
         fill,
+        checked,
       });
 
       const updatedOrder =
@@ -262,7 +303,14 @@ export default class ExchangeOrderFillMonitorService {
       exchangeOrder.fill_processing_status ?? "PENDING",
     ).toUpperCase();
 
-    if (fillProcessingStatus === "PROCESSED") {
+    const localOrderStatus = String(
+      exchangeOrder.status ?? "",
+    ).toUpperCase();
+
+    if (
+      fillProcessingStatus === "PROCESSED" &&
+      localOrderStatus !== "PARTIALLY_FILLED"
+    ) {
       return {
         processed: false,
         reason: "FILL_ALREADY_PROCESSED",
@@ -356,7 +404,7 @@ export default class ExchangeOrderFillMonitorService {
       };
     }
 
-    if (checked.status !== "FILLED") {
+    if (!["PARTIALLY_FILLED", "FILLED"].includes(checked.status)) {
       return {
         ...checked,
         processed: false,
@@ -365,79 +413,189 @@ export default class ExchangeOrderFillMonitorService {
 
     const response = checked.response;
 
-    const quantity = Number(
-      response?.executedQty ??
-      response?.cummulativeQuantity ??
-      response?.origQty ??
-      exchangeOrder.quantity,
-    );
+    const exchangeTrades = Array.isArray(response?.fills)
+      ? response.fills
+      : [];
 
-    const price = Number(
-      response?.avgPrice ??
-      response?.price ??
-      exchangeOrder.price,
-    );
-
-    if (!Number.isFinite(quantity) || quantity <= 0) {
-      throw new Error("Filled quantity is invalid");
-    }
-
-    if (!Number.isFinite(price) || price <= 0) {
-      throw new Error("Filled price is invalid");
-    }
-
-    const existingFills =
-      this.fillRepository.findByExchangeOrderId(
-        exchangeOrder.id,
+    if (exchangeTrades.length === 0) {
+      const executedQuantity = Number(
+        response?.executedQty ??
+        response?.cummulativeQuantity ??
+        0,
       );
 
-    if (existingFills.length > 0) {
-      this.exchangeOrderRepository.updateStatus(
-        exchangeOrder.id,
-        "FILLED",
-      );
+      if (!Number.isFinite(executedQuantity) || executedQuantity <= 0) {
+        throw new Error("Filled quantity is invalid");
+      }
 
-      return this.processExistingFill({
-        exchangeOrder: this.exchangeOrderRepository.findById(
+      const existingFills =
+        this.fillRepository.findByExchangeOrderId(
           exchangeOrder.id,
-        ),
-        symbol,
-        fill: existingFills[0],
-        checked: {
-          ...checked,
-          status: "FILLED",
-        },
-      });
+        );
+
+      const alreadyRecordedQuantity =
+        existingFills.reduce(
+          (sum, fill) => sum + Number(fill.quantity),
+          0,
+        );
+
+      const newQuantity =
+        executedQuantity - alreadyRecordedQuantity;
+
+      if (newQuantity <= 0) {
+        exchangeTrades.length = 0;
+      } else {
+        const fallbackPrice = Number(
+          response?.avgPrice ??
+          response?.price ??
+          exchangeOrder.price,
+        );
+
+        if (!Number.isFinite(fallbackPrice) || fallbackPrice <= 0) {
+          throw new Error("Filled price is invalid");
+        }
+
+        exchangeTrades.push({
+          tradeId:
+            `${exchangeOrder.exchange_order_id}:cum:${executedQuantity}`,
+          price: fallbackPrice,
+          qty: newQuantity,
+          commission: response?.commission ?? 0,
+          commissionAsset: response?.commissionAsset ?? null,
+        });
+      }
     }
 
-    const fill = this.fillRepository.create({
-      exchangeOrderId: exchangeOrder.id,
-      symbol,
-      side: exchangeOrder.side,
-      quantity,
-      price,
-      filledAt:
-        response?.time ??
-        response?.transactTime ??
-        new Date().toISOString(),
-      exchangeResponse: response,
-    });
+    const newFills = [];
+
+    for (const trade of exchangeTrades) {
+      const tradeId =
+        trade?.tradeId ??
+        trade?.trade_id ??
+        trade?.id ??
+        null;
+
+      const quantity = Number(
+        trade?.qty ??
+        trade?.quantity ??
+        0,
+      );
+
+      const price = Number(
+        trade?.price ??
+        response?.avgPrice ??
+        response?.price ??
+        exchangeOrder.price,
+      );
+
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        continue;
+      }
+
+      if (!Number.isFinite(price) || price <= 0) {
+        throw new Error("Fill price is invalid");
+      }
+
+      if (tradeId) {
+        const existing =
+          this.fillRepository.findByExchangeTradeId(tradeId);
+
+        if (existing) {
+          continue;
+        }
+      } else {
+        const existingFills =
+          this.fillRepository.findByExchangeOrderId(
+            exchangeOrder.id,
+          );
+
+        const alreadyRecordedQuantity =
+          existingFills.reduce(
+            (sum, fill) => sum + Number(fill.quantity),
+            0,
+          );
+
+        const executedQuantity = Number(
+          response?.executedQty ??
+          response?.cummulativeQuantity ??
+          0,
+        );
+
+        if (
+          executedQuantity <= alreadyRecordedQuantity + quantity
+        ) {
+          if (executedQuantity <= alreadyRecordedQuantity) {
+            continue;
+          }
+        }
+      }
+
+      const created =
+        this.fillRepository.createTradeFill({
+          exchangeOrderId: exchangeOrder.id,
+          exchangeTradeId: tradeId,
+          symbol,
+          side: exchangeOrder.side,
+          price,
+          quantity,
+          commission: Number(trade?.commission ?? 0),
+          commissionAsset:
+            trade?.commissionAsset ?? null,
+          filledAt:
+            trade?.time ??
+            response?.time ??
+            response?.transactTime ??
+            new Date().toISOString(),
+          exchangeResponse: {
+            order: response,
+            trade,
+          },
+        });
+
+      if (created.created) {
+        newFills.push(created.fill);
+      }
+    }
 
     this.exchangeOrderRepository.updateStatus(
       exchangeOrder.id,
-      "FILLED",
+      checked.status,
     );
 
-    return this.processExistingFill({
-      exchangeOrder: this.exchangeOrderRepository.findById(
-        exchangeOrder.id,
-      ),
-      symbol,
-      fill,
-      checked: {
+    if (newFills.length === 0) {
+      return {
         ...checked,
-        status: "FILLED",
-      },
-    });
+        processed: false,
+        reason: "NO_NEW_FILLS",
+        fillCount: 0,
+      };
+    }
+
+    const results = [];
+
+    for (const fill of newFills) {
+      const processed =
+        await this.processExistingFill({
+          exchangeOrder:
+            this.exchangeOrderRepository.findById(
+              exchangeOrder.id,
+            ),
+          symbol,
+          fill,
+          checked,
+        });
+
+      results.push(processed);
+    }
+
+    return {
+      ...checked,
+      processed: true,
+      reason: "NEW_FILLS_PROCESSED",
+      fillCount: newFills.length,
+      fills: newFills,
+      results,
+    };
+
   }
 }

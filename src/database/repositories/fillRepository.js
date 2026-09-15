@@ -64,6 +64,66 @@ export default class FillRepository {
       .all(exchangeOrderId);
   }
 
+  findByExchangeTradeId(exchangeTradeId) {
+    if (!exchangeTradeId) {
+      return null;
+    }
+
+    return db
+      .prepare(`
+        SELECT *
+        FROM fills
+        WHERE exchange_trade_id = ?
+      `)
+      .get(exchangeTradeId);
+  }
+
+  createTradeFill({
+    exchangeOrderId,
+    exchangeTradeId,
+    symbol,
+    side,
+    price,
+    quantity,
+    commission = 0,
+    commissionAsset = null,
+    filledAt,
+    exchangeResponse = null,
+  }) {
+    if (!exchangeTradeId) {
+      throw new Error("Exchange trade ID is required");
+    }
+
+    const existing = this.findByExchangeTradeId(exchangeTradeId);
+
+    if (existing) {
+      return {
+        created: false,
+        duplicate: true,
+        fill: existing,
+      };
+    }
+
+    const fill = this.create({
+      exchangeOrderId,
+      exchangeTradeId,
+      symbol,
+      side,
+      price,
+      quantity,
+      commission,
+      commissionAsset,
+      filledAt,
+      exchangeResponse,
+    });
+
+    return {
+      created: true,
+      duplicate: false,
+      fill,
+    };
+  }
+
   findBySymbol(symbol) {
     return db
       .prepare(`
