@@ -38,14 +38,22 @@ export default class PositionProtectionService {
   async calculateAfterInitialFill({
     symbol,
     initialFill,
+    initialFills = null,
     config = this.tradingConfig,
   }) {
     const initialPrice = Number(initialFill.price);
-    const position = this.positionCalculator.calculate([{
-      side: "BUY",
-      quantity: Number(initialFill.quantity),
-      price: initialPrice,
-    }]);
+
+    const positionFills =
+      Array.isArray(initialFills) && initialFills.length > 0
+        ? initialFills
+        : [{
+            side: "BUY",
+            quantity: Number(initialFill.quantity),
+            price: initialPrice,
+          }];
+
+    const position =
+      this.positionCalculator.calculate(positionFills);
 
     const dcaLevels =
       this.dcaCalculator.calculateLevels(

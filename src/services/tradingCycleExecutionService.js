@@ -77,6 +77,7 @@ export default class TradingCycleExecutionService {
     cycleId,
     symbol,
     fill,
+    initialFills = null,
   }) {
     if (!fill || !Number.isFinite(Number(fill.price))) {
       throw new Error("Valid initial fill is required");
@@ -103,6 +104,7 @@ export default class TradingCycleExecutionService {
           price: Number(fill.price),
           quantity: Number(fill.quantity),
         },
+        initialFills,
         config: configSnapshot.config,
       });
 
