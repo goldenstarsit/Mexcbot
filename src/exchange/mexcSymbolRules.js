@@ -67,8 +67,33 @@ export default class MexcSymbolRules {
       throw new Error(`Invalid minQty for ${symbol}`);
     }
 
+    if (
+      !Number.isFinite(rules.baseSizePrecision) ||
+      rules.baseSizePrecision <= 0
+    ) {
+      throw new Error(`Invalid baseSizePrecision for ${symbol}`);
+    }
+
+    if (
+      !Number.isFinite(rules.quoteAmountPrecision) ||
+      rules.quoteAmountPrecision <= 0
+    ) {
+      throw new Error(`Invalid quoteAmountPrecision for ${symbol}`);
+    }
+
+    if (
+      !Number.isFinite(rules.quotePrecision) ||
+      rules.quotePrecision < 0
+    ) {
+      throw new Error(`Invalid quotePrecision for ${symbol}`);
+    }
+
     if (!Number.isFinite(rules.minNotional) || rules.minNotional <= 0) {
       throw new Error(`Invalid minNotional for ${symbol}`);
+    }
+
+    if (!Array.isArray(rules.orderTypes)) {
+      throw new Error(`Invalid orderTypes for ${symbol}`);
     }
 
     if (!rules.orderTypes.includes("LIMIT_MAKER")) {
@@ -77,6 +102,17 @@ export default class MexcSymbolRules {
 
     if (!rules.isSpotTradingAllowed) {
       throw new Error(`Spot trading is not allowed for ${symbol}`);
+    }
+
+    const stepRatio = rules.minQty / rules.stepSize;
+
+    if (
+      !Number.isFinite(stepRatio) ||
+      Math.abs(stepRatio - Math.round(stepRatio)) > 1e-8
+    ) {
+      throw new Error(
+        `minQty must be aligned with stepSize for ${symbol}`,
+      );
     }
 
     this.cache.set(symbol, rules);
