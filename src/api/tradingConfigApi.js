@@ -15,6 +15,7 @@ export default class TradingConfigApi {
     exchangeOrderRepository = null,
     openPositionDashboardService = null,
     dcaProgressDashboardService = null,
+    tpSlStatusDashboardService = null,
     botStatusService = null,
     host = "127.0.0.1",
     port = 3000,
@@ -36,6 +37,7 @@ export default class TradingConfigApi {
     this.exchangeOrderRepository = exchangeOrderRepository;
     this.openPositionDashboardService = openPositionDashboardService;
     this.dcaProgressDashboardService = dcaProgressDashboardService;
+    this.tpSlStatusDashboardService = tpSlStatusDashboardService;
     this.botStatusService = botStatusService;
     this.host = host;
     this.port = port;
@@ -183,6 +185,49 @@ export default class TradingConfigApi {
         this.sendJson(response, 200, {
           progress,
           count: progress.length,
+          filters: {
+            symbol: symbol || null,
+          },
+        });
+      } catch (error) {
+        this.sendJson(response, 500, {
+          error: error.message,
+        });
+      }
+
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/tp-sl") {
+      this.sendHtml(
+        response,
+        fs.readFileSync(
+          path.join(PUBLIC_DIR, "tp-sl.html"),
+          "utf8",
+        ),
+      );
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/tp-sl") {
+      if (!this.tpSlStatusDashboardService) {
+        this.sendJson(response, 503, {
+          error: "TP/SL status dashboard service is not configured",
+        });
+        return;
+      }
+
+      try {
+        const symbol = url.searchParams.get("symbol");
+
+        const status =
+          this.tpSlStatusDashboardService.getStatus({
+            symbol: symbol || null,
+          });
+
+        this.sendJson(response, 200, {
+          status,
+          count: status.length,
           filters: {
             symbol: symbol || null,
           },

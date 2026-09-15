@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MEXCBOT — TP/SL Status</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#08111d;color:#e8f0f8;font:14px system-ui,-apple-system,sans-serif}
+nav{display:flex;gap:8px;overflow:auto;padding:14px;background:#0d1828;border-bottom:1px solid #1d2b40}
+nav a{color:#9fb2c8;text-decoration:none;padding:8px 12px;border-radius:8px;white-space:nowrap}
+nav a.active{background:#17304d;color:#fff}
+main{max-width:1200px;margin:auto;padding:18px}
+header{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+h1{margin:0 0 4px;font-size:24px}.muted{color:#8ea2b8}
+select,button{background:#101f32;color:#e8f0f8;border:1px solid #29405b;border-radius:8px;padding:9px 11px}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:18px 0}
+.stat,.card{background:#0e1b2b;border:1px solid #1d3048;border-radius:12px;padding:15px}
+.stat strong{display:block;font-size:22px;margin-top:5px}
+.grid{display:grid;gap:14px}
+.card h2{margin:0 0 12px;font-size:18px}
+.row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #1b2c42}
+.row:last-child{border-bottom:0}
+.good{color:#63e6a7}.warn{color:#ffd166}.bad{color:#ff7b88}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#17304d}
+.exit{margin-top:12px;padding:12px;border-radius:10px;background:#111f32}
+@media(min-width:640px){main{padding:24px}.stats{grid-template-columns:repeat(4,1fr)}}
+@media(min-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<nav>
+<a href="/">Runtime</a><a href="/orders">Orders</a><a href="/positions">Positions</a>
+<a href="/dca">DCA</a><a class="active" href="/tp-sl">TP/SL</a>
+<a href="/cycles">Cycles</a><a href="/config">Config</a>
+</nav>
+<main>
+<header>
+<div><h1>TP/SL Status</h1><div class="muted">Protection status · auto refresh every 5 seconds</div></div>
+<div>
+<select id="symbol">
+<option value="">All Symbols</option>
+<option>BTCUSDT</option><option>ETHUSDT</option><option>BNBUSDT</option>
+<option>SOLUSDT</option><option>TRXUSDT</option>
+</select>
+<button onclick="load()">Refresh</button>
+</div>
+</header>
+
+<div class="stats">
+<div class="stat">Open Cycles<strong id="cycles">0</strong></div>
+<div class="stat">TP Active<strong id="tp">0</strong></div>
+<div class="stat">SL Active<strong id="sl">0</strong></div>
+<div class="stat">Active Exits<strong id="exits">0</strong></div>
+</div>
+
+<div id="grid" class="grid"></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num=v=>v==null?"—":Number(v).toFixed(8);
+function orderHtml(label,item){
+  if(!item) return '<div class="exit"><strong>'+label+'</strong><div class="muted">No exit order placed</div></div>';
+  const terminal=["FILLED","CANCELED","CANCELLED","REJECTED","EXPIRED"].includes(String(item.status).toUpperCase());
+  const cls=item.status==="FILLED"?"good":terminal?"warn":"good";
+  return '<div class="exit"><div class="row"><strong>'+label+'</strong><span class="badge '+cls+'">'+esc(item.status)+'</span></div>'+
+    '<div class="row"><span>Exchange Order</span><span>'+esc(item.exchangeOrderId)+'</span></div>'+
+    '<div class="row"><span>Order Price</span><strong>'+num(item.price)+'</strong></div>'+
+    '<div class="row"><span>Quantity</span><span>'+num(item.quantity)+'</span></div></div>';
+}
+function render(x){
+  const active=x.activeExit;
+  return '<article class="card"><h2>'+esc(x.symbol)+' · Cycle '+esc(x.cycleNumber)+'</h2>'+
+    '<div class="row"><span>Average Price</span><strong>'+num(x.position.averagePrice)+'</strong></div>'+
+    '<div class="row"><span>Position Quantity</span><span>'+num(x.position.quantity)+'</span></div>'+
+    '<div class="row"><span>Config Version</span><span>'+esc(x.configVersion||"—")+'</span></div>'+
+    orderHtml('Take Profit · '+esc(x.takeProfit.percentage)+'%',x.takeProfit.order)+
+    '<div class="row"><span>Calculated TP Price</span><strong class="good">'+num(x.takeProfit.calculatedPrice)+'</strong></div>'+
+    orderHtml('Stop Loss · '+esc(x.stopLoss.percentage)+'%',x.stopLoss.order)+
+    '<div class="row"><span>Locked SL Price</span><strong class="warn">'+num(x.stopLoss.calculatedPrice)+'</strong></div>'+
+    '<div class="row"><span>SL Lock</span><strong class="good">Initial price locked</strong></div>'+
+    (active?'<div class="exit"><div class="row"><strong>Active Exit</strong><span class="badge">'+esc(active.reason)+'</span></div><div class="row"><span>Status</span><span>'+esc(active.status)+'</span></div><div class="row"><span>Price</span><strong>'+num(active.price)+'</strong></div></div>':'')+
+    '</article>';
+}
+async function load(){
+  const q=$("symbol").value;
+  const r=await fetch("/api/tp-sl"+(q?"?symbol="+encodeURIComponent(q):""));
+  const d=await r.json();
+  if(!r.ok) throw new Error(d.error||"Request failed");
+  const items=d.status||[];
+  $("cycles").textContent=items.length;
+  $("tp").textContent=items.filter(x=>x.takeProfit.order && !["CANCELED","CANCELLED","REJECTED","EXPIRED"].includes(String(x.takeProfit.order.status).toUpperCase())).length;
+  $("sl").textContent=items.filter(x=>x.stopLoss.order && !["CANCELED","CANCELLED","REJECTED","EXPIRED"].includes(String(x.stopLoss.order.status).toUpperCase())).length;
+  $("exits").textContent=items.filter(x=>x.activeExit).length;
+  $("grid").innerHTML=items.length?items.map(render).join(""):'<div class="card"><div class="muted">No open TP/SL cycles.</div></div>';
+}
+$("symbol").addEventListener("change",load);
+load();
+setInterval(load,5000);
+</script>
+</body>
+</html>
