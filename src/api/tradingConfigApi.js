@@ -16,6 +16,7 @@ export default class TradingConfigApi {
     openPositionDashboardService = null,
     dcaProgressDashboardService = null,
     tpSlStatusDashboardService = null,
+    capitalReservationDashboardService = null,
     botStatusService = null,
     host = "127.0.0.1",
     port = 3000,
@@ -38,6 +39,8 @@ export default class TradingConfigApi {
     this.openPositionDashboardService = openPositionDashboardService;
     this.dcaProgressDashboardService = dcaProgressDashboardService;
     this.tpSlStatusDashboardService = tpSlStatusDashboardService;
+    this.capitalReservationDashboardService =
+      capitalReservationDashboardService;
     this.botStatusService = botStatusService;
     this.host = host;
     this.port = port;
@@ -249,6 +252,46 @@ export default class TradingConfigApi {
           "utf8",
         ),
       );
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/capital") {
+      this.sendHtml(
+        response,
+        fs.readFileSync(
+          path.join(PUBLIC_DIR, "capital.html"),
+          "utf8",
+        ),
+      );
+      return;
+    }
+
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/capital"
+    ) {
+      if (!this.capitalReservationDashboardService) {
+        this.sendJson(response, 503, {
+          error:
+            "Capital reservation dashboard service is not configured",
+        });
+        return;
+      }
+
+      try {
+        const status =
+          await this.capitalReservationDashboardService.getStatus();
+
+        this.sendJson(response, 200, status);
+      } catch (error) {
+        this.sendJson(response, 500, {
+          error:
+            error instanceof Error
+              ? error.message
+              : String(error),
+        });
+      }
+
       return;
     }
 

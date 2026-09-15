@@ -117,6 +117,7 @@ export default class TradingCapitalReservationService {
         reject,
         timeoutHandle: null,
         settled: false,
+        createdAt: Date.now(),
       };
 
       request.timeoutHandle = setTimeout(() => {

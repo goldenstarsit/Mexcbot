@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MEXCBOT Capital</title>
+  <style>
+    :root{font-family:Inter,system-ui,sans-serif;color:#e8edf5;background:#0b1020}
+    *{box-sizing:border-box}
+    body{margin:0;background:#0b1020}
+    nav{display:flex;gap:10px;overflow:auto;padding:14px;background:#11182b;position:sticky;top:0;z-index:5}
+    nav a{color:#aebbd0;text-decoration:none;white-space:nowrap;padding:8px 10px;border-radius:8px}
+    nav a.active{background:#24304a;color:#fff}
+    main{max-width:1100px;margin:auto;padding:18px}
+    h1{font-size:24px;margin:4px 0 18px}
+    .stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .stat,.card{background:#121a2d;border:1px solid #26334d;border-radius:14px;padding:15px}
+    .label{font-size:12px;color:#8e9db5}
+    .value{font-size:21px;font-weight:700;margin-top:5px}
+    .section{margin-top:16px}
+    .section h2{font-size:17px}
+    .row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #24304a}
+    .row:last-child{border-bottom:0}
+    button{border:0;border-radius:9px;padding:9px 13px;background:#24304a;color:#fff}
+    .muted{color:#8e9db5}
+    .ok{color:#72e0a1}
+    @media(min-width:640px){.stats{grid-template-columns:repeat(4,1fr)}}
+    @media(min-width:900px){main{padding:28px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}}
+  </style>
+</head>
+<body>
+<nav>
+  <a href="/">Runtime</a>
+  <a href="/orders">Orders</a>
+  <a href="/positions">Positions</a>
+  <a href="/dca">DCA</a>
+  <a href="/tp-sl">TP/SL</a>
+  <a class="active" href="/capital">Capital</a>
+  <a href="/cycles">Cycles</a>
+  <a href="/config">Config</a>
+</nav>
+<main>
+  <h1>Capital Reservation</h1>
+  <div class="stats">
+    <div class="stat"><div class="label">Free USDT</div><div id="free" class="value">—</div></div>
+    <div class="stat"><div class="label">Reserved USDT</div><div id="reserved" class="value">—</div></div>
+    <div class="stat"><div class="label">Usable USDT</div><div id="usable" class="value">—</div></div>
+    <div class="stat"><div class="label">Pending</div><div id="pendingCount" class="value">—</div></div>
+  </div>
+
+  <div class="grid">
+    <section class="card section">
+      <h2>Active Reservations</h2>
+      <div id="active" class="muted">Loading…</div>
+    </section>
+    <section class="card section">
+      <h2>Pending Requests</h2>
+      <div id="pending" class="muted">Loading…</div>
+    </section>
+  </div>
+
+  <div class="section">
+    <button onclick="load()">Refresh</button>
+    <span id="checked" class="muted"></span>
+  </div>
+</main>
+<script>
+function money(v){return Number(v||0).toFixed(6)}
+function renderList(el,items,fn,empty){
+  el.innerHTML=items.length?items.map(fn).join(""):`<div class="muted">${empty}</div>`;
+}
+async function load(){
+  try{
+    const r=await fetch("/api/capital",{cache:"no-store"});
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.error||"Request failed");
+    document.querySelector("#free").textContent=money(d.account.freeUsdt);
+    document.querySelector("#reserved").textContent=money(d.reservation.reservedUsdt);
+    document.querySelector("#usable").textContent=money(d.reservation.usableUsdt);
+    document.querySelector("#pendingCount").textContent=d.reservation.pendingCount;
+    renderList(
+      document.querySelector("#active"),
+      d.reservation.active,
+      x=>`<div class="row"><span>${x.id}</span><strong>${money(x.amount)} USDT</strong></div>`,
+      "No active reservations"
+    );
+    renderList(
+      document.querySelector("#pending"),
+      d.reservation.pending,
+      x=>`<div class="row"><span>Request #${x.sequence}</span><strong>${money(x.requiredUsdt)} USDT</strong></div>`,
+      "No pending requests"
+    );
+    document.querySelector("#checked").textContent=
+      "Updated "+new Date(d.checkedAt).toLocaleTimeString();
+  }catch(e){
+    document.querySelector("#checked").textContent="Error: "+e.message;
+  }
+}
+load();
+setInterval(load,5000);
+</script>
+</body>
+</html>
