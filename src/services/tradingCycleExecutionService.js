@@ -113,6 +113,7 @@ export default class TradingCycleExecutionService {
     for (const dca of protection.dcaOrders) {
       const record = await this.dcaOrderRepository.create({
         tradingCycleId: cycleId,
+        symbol,
         orderNumber: dca.orderNumber,
         orderType: "LIMIT_MAKER",
         targetPrice: dca.targetPrice,
