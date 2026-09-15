@@ -182,6 +182,7 @@ export default class ExchangeOrderFillMonitorService {
           cycleId: exchangeOrder.trading_cycle_id,
           symbol,
           fill,
+          exchangeOrder,
         });
 
       return {

@@ -160,6 +160,7 @@ export default class CycleLifecycleService {
     cycleId,
     symbol,
     fill,
+    exchangeOrder = null,
   }) {
     if (!fill) {
       throw new Error("Exit fill is required");
@@ -174,6 +175,70 @@ export default class CycleLifecycleService {
 
     if (!Number.isFinite(price) || price <= 0) {
       throw new Error("Exit fill price must be greater than 0");
+    }
+
+    const resolvedExchangeOrder =
+      exchangeOrder ??
+      this.exchangeOrderRepository.findById(
+        fill.exchange_order_id,
+      );
+
+    if (!resolvedExchangeOrder) {
+      throw new Error(
+        `Exchange order is required for exit fill ${fill.id}`,
+      );
+    }
+
+    if (resolvedExchangeOrder.side !== "SELL") {
+      throw new Error("Exit fill must belong to a SELL order");
+    }
+
+    const orderFills =
+      this.fillRepository.findByExchangeOrderId(
+        resolvedExchangeOrder.id,
+      );
+
+    const totalSoldQuantity = orderFills.reduce(
+      (sum, orderFill) => sum + Number(orderFill.quantity ?? 0),
+      0,
+    );
+
+    const requiredSellQuantity =
+      Number(resolvedExchangeOrder.quantity);
+
+    if (
+      !Number.isFinite(requiredSellQuantity) ||
+      requiredSellQuantity <= 0
+    ) {
+      throw new Error(
+        `Invalid SELL order quantity for exchange order ${resolvedExchangeOrder.id}`,
+      );
+    }
+
+    const quantityTolerance = Math.max(
+      1e-12,
+      requiredSellQuantity * 1e-9,
+    );
+
+    const exitComplete =
+      totalSoldQuantity + quantityTolerance >= requiredSellQuantity;
+
+    if (!exitComplete) {
+      return {
+        cycleId,
+        symbol,
+        status: "EXIT_PENDING",
+        sellFilled: false,
+        newCycleReady: false,
+        exitComplete: false,
+        requiredSellQuantity,
+        totalSoldQuantity,
+        remainingSellQuantity: Math.max(
+          0,
+          requiredSellQuantity - totalSoldQuantity,
+        ),
+        cycleSummary: null,
+      };
     }
 
     await this.tradingCycleRepository.updateStatus(
@@ -192,6 +257,10 @@ export default class CycleLifecycleService {
       status: "CLOSED",
       sellFilled: true,
       newCycleReady: true,
+      exitComplete: true,
+      requiredSellQuantity,
+      totalSoldQuantity,
+      remainingSellQuantity: 0,
       cycleSummary: updatedCycle,
     };
   }
@@ -251,12 +320,23 @@ export default class CycleLifecycleService {
     cycleId,
     symbol,
     fill,
+    exchangeOrder = null,
   }) {
     const exit = await this.processExitFill({
       cycleId,
       symbol,
       fill,
+      exchangeOrder,
     });
+
+    if (!exit.exitComplete) {
+      return {
+        exit,
+        cycle: null,
+        initialOrder: null,
+        newCycleStarted: false,
+      };
+    }
 
     const cycle = await this.startNewCycle({
       previousCycleId: cycleId,
