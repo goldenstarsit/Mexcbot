@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MEXCBOT — DCA Progress</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#08111f;color:#e8eef8;font-family:Inter,system-ui,-apple-system,sans-serif}
+nav{display:flex;gap:8px;overflow:auto;padding:14px;background:#0d1828;border-bottom:1px solid #1d2b40}
+nav a{color:#9fb0c8;text-decoration:none;padding:9px 12px;border-radius:9px;white-space:nowrap}
+nav a.active,nav a:hover{background:#17263b;color:#fff}
+main{max-width:1200px;margin:auto;padding:18px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-size:24px;margin:0}
+.muted{color:#8ea0b8;font-size:13px}
+.toolbar{display:flex;gap:8px;margin:18px 0;flex-wrap:wrap}
+select,button{background:#111f32;color:#e8eef8;border:1px solid #2a3a52;border-radius:9px;padding:10px 12px}
+button{cursor:pointer}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+.stat,.card{background:#0d1828;border:1px solid #1d2b40;border-radius:14px;padding:15px}
+.stat strong{display:block;font-size:21px;margin-top:4px}
+.grid{display:grid;gap:14px}
+.card h2{font-size:18px;margin:0 0 5px}
+.row{display:flex;justify-content:space-between;gap:10px;border-top:1px solid #1b293c;padding:9px 0;font-size:14px}
+.row:first-of-type{border-top:0}
+.good{color:#55d6a2}.warn{color:#f2c56b}.danger{color:#ff7b8b}
+.progress{height:9px;background:#17263a;border-radius:99px;overflow:hidden;margin:12px 0}
+.progress span{display:block;height:100%;background:#4da3ff}
+.orders{display:grid;gap:7px;margin-top:12px}
+.order{display:grid;grid-template-columns:45px 1fr auto;gap:8px;align-items:center;background:#111f32;padding:10px;border-radius:9px;font-size:13px}
+.badge{padding:4px 7px;border-radius:999px;background:#1c3048;color:#b9c9dd;font-size:11px}
+@media(min-width:640px){main{padding:24px}.stats{grid-template-columns:repeat(4,1fr)}.orders{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1000px){.grid{grid-template-columns:repeat(2,1fr)}.orders{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav>
+<a href="/status">Runtime</a><a href="/orders">Orders</a><a href="/positions">Positions</a>
+<a class="active" href="/dca">DCA</a><a href="/cycles">Cycles</a><a href="/config">Config</a>
+</nav>
+<main>
+<header>
+<div><h1>DCA Progress</h1><div class="muted">Open cycles · auto refresh every 5 seconds</div></div>
+<div class="toolbar"><select id="symbol"><option value="">All symbols</option></select><button onclick="load()">Refresh</button></div>
+</header>
+<section class="stats">
+<div class="stat">Open Cycles<strong id="cycles">0</strong></div>
+<div class="stat">DCA Completed<strong id="completed">0</strong></div>
+<div class="stat">DCA Remaining<strong id="remaining">0</strong></div>
+<div class="stat">Next Targets<strong id="targets">0</strong></div>
+</section>
+<section id="grid" class="grid"></section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+async function load(){
+  const symbol=$("symbol").value;
+  const r=await fetch("/api/dca"+(symbol?"?symbol="+encodeURIComponent(symbol):""));
+  const data=await r.json();
+  const items=data.progress||[];
+  const symbols=[...new Set(items.map(x=>x.symbol))];
+  const old=symbol;
+  $("symbol").innerHTML='<option value="">All symbols</option>'+symbols.map(x=>'<option>'+esc(x)+'</option>').join("");
+  $("symbol").value=old;
+  $("cycles").textContent=items.length;
+  $("completed").textContent=items.reduce((n,x)=>n+x.completedLevels,0);
+  $("remaining").textContent=items.reduce((n,x)=>n+x.remainingLevels,0);
+  $("targets").textContent=items.filter(x=>x.nextDca).length;
+  $("grid").innerHTML=items.length?items.map(render).join(""):'<div class="card"><div class="muted">No open DCA cycles.</div></div>';
+}
+function render(x){
+  const next=x.nextDca;
+  return '<article class="card">'+
+    '<h2>'+esc(x.symbol)+' <span class="badge">Cycle '+esc(x.cycleNumber)+'</span></h2>'+
+    '<div class="muted">Current price: '+Number(x.currentPrice).toFixed(8)+'</div>'+
+    '<div class="progress"><span style="width:'+Math.min(x.progressPercent,100)+'%"></span></div>'+
+    '<div class="row"><span>Progress</span><strong>'+x.completedLevels+' / '+x.totalLevels+' ('+x.progressPercent.toFixed(1)+'%)</strong></div>'+
+    '<div class="row"><span>Pending</span><strong>'+x.counts.pending+'</strong></div>'+
+    '<div class="row"><span>Placed</span><strong>'+x.counts.placed+'</strong></div>'+
+    '<div class="row"><span>Triggered/Filled</span><strong class="good">'+x.counts.triggered+'</strong></div>'+
+    (next?'<div class="row"><span>Next DCA</span><strong>Level '+next.dcaLevel+' @ '+next.targetPrice.toFixed(8)+'</strong></div>'+
+      '<div class="row"><span>Target reached</span><strong class="'+(next.reached?'good':'warn')+'">'+(next.reached?'YES':'WAITING')+'</strong></div>':'<div class="row"><span>Next DCA</span><strong class="good">All levels processed</strong></div>')+
+    '<div class="orders">'+x.orders.map(o=>'<div class="order"><b>#'+o.dcaLevel+'</b><span>'+o.targetPrice.toFixed(8)+'</span><span class="badge">'+esc(o.status)+'</span></div>').join("")+'</div>'+
+    '</article>';
+}
+load();setInterval(load,5000);
+</script>
+</body>
+</html>

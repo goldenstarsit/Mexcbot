@@ -14,6 +14,7 @@ export default class TradingConfigApi {
     tradingCycleRepository,
     exchangeOrderRepository = null,
     openPositionDashboardService = null,
+    dcaProgressDashboardService = null,
     botStatusService = null,
     host = "127.0.0.1",
     port = 3000,
@@ -34,6 +35,7 @@ export default class TradingConfigApi {
     this.tradingCycleRepository = tradingCycleRepository;
     this.exchangeOrderRepository = exchangeOrderRepository;
     this.openPositionDashboardService = openPositionDashboardService;
+    this.dcaProgressDashboardService = dcaProgressDashboardService;
     this.botStatusService = botStatusService;
     this.host = host;
     this.port = port;
@@ -148,6 +150,49 @@ export default class TradingConfigApi {
           symbol: symbol || null,
         },
       });
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/dca") {
+      this.sendHtml(
+        response,
+        fs.readFileSync(
+          path.join(PUBLIC_DIR, "dca.html"),
+          "utf8",
+        ),
+      );
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/dca") {
+      if (!this.dcaProgressDashboardService) {
+        this.sendJson(response, 503, {
+          error: "DCA progress dashboard service is not configured",
+        });
+        return;
+      }
+
+      try {
+        const symbol = url.searchParams.get("symbol");
+
+        const progress =
+          await this.dcaProgressDashboardService.getProgress({
+            symbol: symbol || null,
+          });
+
+        this.sendJson(response, 200, {
+          progress,
+          count: progress.length,
+          filters: {
+            symbol: symbol || null,
+          },
+        });
+      } catch (error) {
+        this.sendJson(response, 500, {
+          error: error.message,
+        });
+      }
+
       return;
     }
 
