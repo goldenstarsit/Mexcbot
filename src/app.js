@@ -30,6 +30,7 @@ import TradingCapitalReservationService from "./services/tradingCapitalReservati
 import DcaOrderManager from "./services/dcaOrderManager.js";
 import PositionCalculator from "./services/positionCalculator.js";
 import PositionProtectionService from "./services/positionProtectionService.js";
+import OpenPositionDashboardService from "./services/openPositionDashboardService.js";
 import TradingCycleExecutionService from "./services/tradingCycleExecutionService.js";
 import CycleLifecycleService from "./services/cycleLifecycleService.js";
 import AllSymbolsStartupService from "./services/allSymbolsStartupService.js";
@@ -124,6 +125,14 @@ const positionProtectionService = new PositionProtectionService({
   symbolRulesService,
   tradingConfig,
 });
+
+const openPositionDashboardService =
+  new OpenPositionDashboardService({
+    tradingCycleRepository,
+    fillRepository,
+    positionCalculator,
+    positionProtectionService,
+  });
 
 const tradingCycleExecutionService =
   new TradingCycleExecutionService({
@@ -271,6 +280,7 @@ const tradingConfigApi =
     tradingConfigService,
     tradingCycleRepository,
     exchangeOrderRepository,
+    openPositionDashboardService,
     botStatusService,
     host: "127.0.0.1",
     port: 3000,

@@ -13,6 +13,7 @@ export default class TradingConfigApi {
     tradingConfigService,
     tradingCycleRepository,
     exchangeOrderRepository = null,
+    openPositionDashboardService = null,
     botStatusService = null,
     host = "127.0.0.1",
     port = 3000,
@@ -32,6 +33,7 @@ export default class TradingConfigApi {
     this.tradingConfigService = tradingConfigService;
     this.tradingCycleRepository = tradingCycleRepository;
     this.exchangeOrderRepository = exchangeOrderRepository;
+    this.openPositionDashboardService = openPositionDashboardService;
     this.botStatusService = botStatusService;
     this.host = host;
     this.port = port;
@@ -110,6 +112,42 @@ export default class TradingConfigApi {
       });
 
       response.end(body);
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/positions") {
+      this.sendHtml(
+        response,
+        fs.readFileSync(
+          path.join(PUBLIC_DIR, "positions.html"),
+          "utf8",
+        ),
+      );
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/positions") {
+      if (!this.openPositionDashboardService) {
+        this.sendJson(response, 503, {
+          error: "Open position dashboard service is not configured",
+        });
+        return;
+      }
+
+      const symbol = url.searchParams.get("symbol");
+
+      const positions =
+        this.openPositionDashboardService.getOpenPositions({
+          symbol: symbol || null,
+        });
+
+      this.sendJson(response, 200, {
+        positions,
+        count: positions.length,
+        filters: {
+          symbol: symbol || null,
+        },
+      });
       return;
     }
 
