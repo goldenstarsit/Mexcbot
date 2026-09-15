@@ -300,13 +300,36 @@ const hasApiCredentials =
   Boolean(process.env.MEXC_API_KEY) &&
   Boolean(process.env.MEXC_API_SECRET);
 
+let liveTradingEnabled = false;
+
 if (!hasApiCredentials) {
   console.log(
     "Live trading: DISABLED (MEXC API credentials are not configured)",
   );
 } else {
-  console.log("Live trading: ENABLED");
+  const accountReadiness = await mexcAccountHealthService.check();
 
+  liveTradingEnabled =
+    accountReadiness.status === "OK" &&
+    accountReadiness.authenticated === true &&
+    accountReadiness.canTrade === true &&
+    accountReadiness.tradingReady === true;
+
+  if (!liveTradingEnabled) {
+    console.log("Live trading: DISABLED");
+    console.log(
+      "Live trading reason:",
+      accountReadiness.reason ??
+        (accountReadiness.status !== "OK"
+          ? "MEXC account health check failed"
+          : "MEXC account is not trading ready"),
+    );
+  } else {
+    console.log("Live trading: ENABLED");
+  }
+}
+
+if (liveTradingEnabled) {
   try {
     const recovery =
       await exitOrderRecoveryService.recover();
