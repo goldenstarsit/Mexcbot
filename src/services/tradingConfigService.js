@@ -32,7 +32,10 @@ export default class TradingConfigService {
   }
 
   getCurrent() {
-    return this.repository.getConfig() ?? this.initialize();
+    const current =
+      this.repository.getConfig() ?? this.initialize();
+
+    return structuredClone(current);
   }
 
   createCycleSnapshot() {
