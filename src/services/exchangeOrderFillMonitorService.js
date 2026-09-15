@@ -105,9 +105,14 @@ export default class ExchangeOrderFillMonitorService {
           exchangeOrder.id,
         );
 
+      const firstFillOfOrder =
+        orderFills.length > 0
+          ? orderFills[0]
+          : null;
+
       const isFirstFillOfOrder =
-        orderFills.length === 1 &&
-        Number(orderFills[0].id) === Number(fill.id);
+        firstFillOfOrder !== null &&
+        Number(firstFillOfOrder.id) === Number(fill.id);
 
       if (
         this.isInitialBuy(exchangeOrder) &&
