@@ -277,6 +277,74 @@ export default class ExchangeOrderRepository {
       .all();
   }
 
+  findLiveOrders({ symbol = null, status = null, limit = 100, offset = 0 } = {}) {
+    const normalizedLimit = Math.min(
+      Math.max(Number.parseInt(limit, 10) || 100, 1),
+      100,
+    );
+    const normalizedOffset = Math.max(
+      Number.parseInt(offset, 10) || 0,
+      0,
+    );
+
+    const conditions = [
+      `(
+        status IN ('NEW', 'ORDER_PLACED', 'PARTIALLY_FILLED')
+        OR (
+          status = 'FILLED'
+          AND fill_processing_status IN ('PENDING', 'FAILED', 'PROCESSING')
+        )
+      )`,
+    ];
+    const params = [];
+
+    if (symbol) {
+      conditions.push("symbol = ?");
+      params.push(symbol);
+    }
+
+    if (status) {
+      conditions.push("status = ?");
+      params.push(status);
+    }
+
+    params.push(normalizedLimit, normalizedOffset);
+
+    return db
+      .prepare(`
+        SELECT
+          id,
+          trading_cycle_id,
+          dca_order_id,
+          symbol,
+          exchange_order_id,
+          client_order_id,
+          side,
+          order_type,
+          price,
+          quantity,
+          status,
+          fill_processing_status,
+          fill_processing_attempts,
+          recovery_status,
+          created_at,
+          updated_at
+        FROM exchange_orders
+        WHERE ${conditions.join(" AND ")}
+        ORDER BY
+          CASE status
+            WHEN 'PARTIALLY_FILLED' THEN 1
+            WHEN 'NEW' THEN 2
+            WHEN 'ORDER_PLACED' THEN 3
+            WHEN 'FILLED' THEN 4
+            ELSE 5
+          END,
+          id DESC
+        LIMIT ? OFFSET ?
+      `)
+      .all(...params);
+  }
+
   markFillProcessing(id) {
     db.prepare(`
       UPDATE exchange_orders

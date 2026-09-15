@@ -12,6 +12,7 @@ export default class TradingConfigApi {
   constructor({
     tradingConfigService,
     tradingCycleRepository,
+    exchangeOrderRepository = null,
     botStatusService = null,
     host = "127.0.0.1",
     port = 3000,
@@ -30,6 +31,7 @@ export default class TradingConfigApi {
 
     this.tradingConfigService = tradingConfigService;
     this.tradingCycleRepository = tradingCycleRepository;
+    this.exchangeOrderRepository = exchangeOrderRepository;
     this.botStatusService = botStatusService;
     this.host = host;
     this.port = port;
@@ -108,6 +110,59 @@ export default class TradingConfigApi {
       });
 
       response.end(body);
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/orders") {
+      this.sendHtml(
+        response,
+        fs.readFileSync(
+          path.join(PUBLIC_DIR, "orders.html"),
+          "utf8",
+        ),
+      );
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/orders") {
+      if (!this.exchangeOrderRepository) {
+        this.sendJson(response, 503, {
+          error: "Exchange order repository is not configured",
+        });
+        return;
+      }
+
+      const rawLimit = url.searchParams.get("limit") ?? "100";
+      const rawOffset = url.searchParams.get("offset") ?? "0";
+      const symbol = url.searchParams.get("symbol");
+      const status = url.searchParams.get("status");
+
+      const limit = Math.min(
+        Math.max(Number.parseInt(rawLimit, 10) || 100, 1),
+        100,
+      );
+      const offset = Math.max(
+        Number.parseInt(rawOffset, 10) || 0,
+        0,
+      );
+
+      const orders = this.exchangeOrderRepository.findLiveOrders({
+        symbol,
+        status,
+        limit,
+        offset,
+      });
+
+      this.sendJson(response, 200, {
+        orders,
+        count: orders.length,
+        limit,
+        offset,
+        filters: {
+          symbol: symbol || null,
+          status: status || null,
+        },
+      });
       return;
     }
 

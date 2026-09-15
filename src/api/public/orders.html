@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#070b16">
+<title>MEXCBOT · Live Orders</title>
+<style>
+:root{
+  --bg:#070b16;
+  --surface:#0d1424;
+  --surface2:#111a2d;
+  --border:rgba(148,163,184,.16);
+  --text:#eef2ff;
+  --muted:#94a3b8;
+  --blue:#60a5fa;
+  --cyan:#22d3ee;
+  --green:#34d399;
+  --red:#fb7185;
+  --amber:#fbbf24;
+  --shadow:0 18px 50px rgba(0,0,0,.24);
+  --radius:18px;
+}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{
+  margin:0;
+  min-height:100vh;
+  background:
+    radial-gradient(circle at 100% 0,rgba(59,130,246,.13),transparent 30rem),
+    radial-gradient(circle at 0 0,rgba(20,184,166,.08),transparent 25rem),
+    var(--bg);
+  color:var(--text);
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+button,select{font:inherit}
+a{color:inherit;text-decoration:none}
+.app{width:min(1440px,100%);margin:auto;padding:18px 14px 42px}
+.header{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  margin-bottom:18px;
+}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{
+  width:46px;height:46px;border-radius:15px;
+  display:grid;place-items:center;
+  font-weight:900;font-size:19px;
+  background:linear-gradient(135deg,#2563eb,#14b8a6);
+  box-shadow:0 10px 30px rgba(37,99,235,.28);
+}
+h1{margin:0;font-size:22px;letter-spacing:-.035em}
+.subtitle{margin-top:3px;color:var(--muted);font-size:12px}
+.nav{
+  display:flex;gap:7px;overflow-x:auto;
+  scrollbar-width:none;
+}
+.nav::-webkit-scrollbar{display:none}
+.nav a{
+  flex:0 0 auto;
+  padding:9px 13px;
+  border:1px solid var(--border);
+  border-radius:11px;
+  color:var(--muted);
+  background:rgba(255,255,255,.025);
+  font-size:13px;
+}
+.nav a.active{
+  color:var(--text);
+  background:rgba(96,165,250,.12);
+  border-color:rgba(96,165,250,.3);
+}
+.stats{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  margin-bottom:14px;
+}
+.stat{
+  padding:15px;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  background:rgba(13,20,36,.9);
+  box-shadow:var(--shadow);
+}
+.label{
+  color:var(--muted);
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.09em;
+}
+.value{
+  margin-top:6px;
+  font-size:25px;
+  font-weight:850;
+  letter-spacing:-.045em;
+}
+.filters{
+  display:grid;
+  gap:9px;
+  padding:13px;
+  margin-bottom:14px;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  background:rgba(13,20,36,.92);
+}
+select,button{
+  width:100%;
+  min-height:44px;
+  padding:0 12px;
+  border-radius:11px;
+  border:1px solid var(--border);
+  color:var(--text);
+  background:var(--surface2);
+  outline:none;
+}
+select:focus{border-color:rgba(96,165,250,.6)}
+button{
+  border:0;
+  cursor:pointer;
+  font-weight:750;
+  background:linear-gradient(135deg,#2563eb,#0891b2);
+}
+button:active{transform:translateY(1px)}
+.panel{
+  overflow:hidden;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  background:rgba(13,20,36,.94);
+  box-shadow:var(--shadow);
+}
+.panel-head{
+  min-height:60px;
+  padding:15px 16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  border-bottom:1px solid var(--border);
+}
+.panel-title{font-size:15px;font-weight:800}
+.updated{font-size:11px;color:var(--muted)}
+.cards{display:grid;gap:10px;padding:12px}
+.card{
+  padding:14px;
+  border:1px solid var(--border);
+  border-radius:15px;
+  background:rgba(255,255,255,.025);
+}
+.card-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:13px;
+}
+.symbol{font-weight:850;letter-spacing:-.02em}
+.badges{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px}
+.badge{
+  display:inline-flex;
+  align-items:center;
+  min-height:24px;
+  padding:3px 8px;
+  border-radius:999px;
+  font-size:9px;
+  font-weight:850;
+  letter-spacing:.045em;
+  text-transform:uppercase;
+  color:var(--muted);
+  background:rgba(148,163,184,.1);
+}
+.buy{color:var(--green);background:rgba(52,211,153,.1)}
+.sell{color:var(--red);background:rgba(251,113,133,.1)}
+.live{color:var(--blue);background:rgba(96,165,250,.1)}
+.partial{color:var(--amber);background:rgba(251,191,36,.1)}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+.field-label{
+  color:var(--muted);
+  font-size:9px;
+  text-transform:uppercase;
+  letter-spacing:.07em;
+}
+.field-value{
+  margin-top:3px;
+  font-size:12px;
+  font-weight:650;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.table-wrap{display:none;overflow:auto}
+table{width:100%;border-collapse:collapse;min-width:1080px}
+th,td{
+  padding:13px 14px;
+  text-align:left;
+  border-bottom:1px solid var(--border);
+  white-space:nowrap;
+  font-size:12px;
+}
+th{
+  color:var(--muted);
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.07em;
+  background:rgba(255,255,255,.018);
+}
+.empty,.error{
+  padding:36px 18px;
+  text-align:center;
+  color:var(--muted);
+  font-size:13px;
+}
+.error{color:var(--red)}
+.footer{
+  padding-top:13px;
+  text-align:center;
+  color:var(--muted);
+  font-size:10px;
+}
+@media(min-width:640px){
+  .app{padding:24px 20px 50px}
+  .header{
+    flex-direction:row;
+    justify-content:space-between;
+    align-items:flex-start;
+  }
+  .stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .filters{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr) 120px;
+    align-items:center;
+  }
+}
+@media(min-width:900px){
+  .app{padding:30px 28px 60px}
+  .cards{display:none}
+  .table-wrap{display:block}
+  .nav a:hover{border-color:rgba(96,165,250,.35)}
+}
+</style>
+</head>
+<body>
+<main class="app">
+<header class="header">
+  <div class="brand">
+    <div class="logo">M</div>
+    <div>
+      <h1>Live Orders</h1>
+      <div class="subtitle">MEXCBOT · Real-time exchange order monitoring</div>
+    </div>
+  </div>
+  <nav class="nav">
+    <a href="/status">Runtime</a>
+    <a href="/orders" class="active">Orders</a>
+    <a href="/cycles">Cycles</a>
+    <a href="/config">Config</a>
+  </nav>
+</header>
+
+<section class="stats">
+  <div class="stat"><div class="label">Live Orders</div><div class="value" id="total">—</div></div>
+  <div class="stat"><div class="label">Buy Orders</div><div class="value" id="buys">—</div></div>
+  <div class="stat"><div class="label">Sell Orders</div><div class="value" id="sells">—</div></div>
+  <div class="stat"><div class="label">Partial Fills</div><div class="value" id="partial">—</div></div>
+</section>
+
+<section class="filters">
+  <select id="symbol"><option value="">All symbols</option></select>
+  <select id="status">
+    <option value="">All live statuses</option>
+    <option value="NEW">NEW</option>
+    <option value="ORDER_PLACED">ORDER PLACED</option>
+    <option value="PARTIALLY_FILLED">PARTIALLY FILLED</option>
+    <option value="FILLED">FILLED / PROCESSING</option>
+  </select>
+  <button id="refresh">Refresh</button>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div class="panel-title">Exchange Orders</div>
+    <div class="updated" id="updated">Waiting…</div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Symbol</th><th>Side</th><th>Status</th><th>Type</th>
+          <th>Price</th><th>Quantity</th><th>Cycle</th>
+          <th>Exchange ID</th><th>Updated</th>
+        </tr>
+      </thead>
+      <tbody id="table"></tbody>
+    </table>
+  </div>
+
+  <div class="cards" id="cards"></div>
+  <div class="empty" id="empty" hidden>No live orders found.</div>
+  <div class="error" id="error" hidden></div>
+</section>
+
+<div class="footer">Auto-refresh every 5 seconds · Live operational orders only</div>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const state={orders:[]};
+
+function esc(v){
+  return String(v??"")
+    .replaceAll("&","&amp;").replaceAll("<","&lt;")
+    .replaceAll(">","&gt;").replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+function num(v){
+  const n=Number(v);
+  return Number.isFinite(n)
+    ? n.toLocaleString(undefined,{maximumFractionDigits:12})
+    : "—";
+}
+function statusClass(s){
+  if(s==="PARTIALLY_FILLED")return"partial";
+  if(["NEW","ORDER_PLACED"].includes(s))return"live";
+  return"";
+}
+function render(){
+  const o=state.orders;
+  $("total").textContent=o.length;
+  $("buys").textContent=o.filter(x=>x.side==="BUY").length;
+  $("sells").textContent=o.filter(x=>x.side==="SELL").length;
+  $("partial").textContent=o.filter(x=>x.status==="PARTIALLY_FILLED").length;
+
+  const current=$("symbol").value;
+  const symbols=[...new Set(o.map(x=>x.symbol))].sort();
+  $("symbol").innerHTML='<option value="">All symbols</option>'+
+    symbols.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join("");
+  if(symbols.includes(current))$("symbol").value=current;
+
+  $("empty").hidden=o.length!==0;
+
+  $("table").innerHTML=o.map(x=>`
+    <tr>
+      <td><strong>${esc(x.symbol)}</strong></td>
+      <td><span class="badge ${x.side==="BUY"?"buy":"sell"}">${esc(x.side)}</span></td>
+      <td><span class="badge ${statusClass(x.status)}">${esc(x.status)}</span></td>
+      <td>${esc(x.order_type)}</td>
+      <td>${num(x.price)}</td>
+      <td>${num(x.quantity)}</td>
+      <td>#${esc(x.trading_cycle_id)}</td>
+      <td>${esc(x.exchange_order_id)}</td>
+      <td>${esc(x.updated_at||x.created_at||"—")}</td>
+    </tr>`).join("");
+
+  $("cards").innerHTML=o.map(x=>`
+    <article class="card">
+      <div class="card-top">
+        <div class="symbol">${esc(x.symbol)}</div>
+        <div class="badges">
+          <span class="badge ${x.side==="BUY"?"buy":"sell"}">${esc(x.side)}</span>
+          <span class="badge ${statusClass(x.status)}">${esc(x.status)}</span>
+        </div>
+      </div>
+      <div class="grid">
+        <div><div class="field-label">Price</div><div class="field-value">${num(x.price)}</div></div>
+        <div><div class="field-label">Quantity</div><div class="field-value">${num(x.quantity)}</div></div>
+        <div><div class="field-label">Order Type</div><div class="field-value">${esc(x.order_type)}</div></div>
+        <div><div class="field-label">Cycle</div><div class="field-value">#${esc(x.trading_cycle_id)}</div></div>
+        <div><div class="field-label">Exchange ID</div><div class="field-value">${esc(x.exchange_order_id)}</div></div>
+        <div><div class="field-label">Updated</div><div class="field-value">${esc(x.updated_at||x.created_at||"—")}</div></div>
+      </div>
+    </article>`).join("");
+}
+async function load(){
+  $("error").hidden=true;
+  const p=new URLSearchParams();
+  if($("symbol").value)p.set("symbol",$("symbol").value);
+  if($("status").value)p.set("status",$("status").value);
+  try{
+    const r=await fetch("/api/orders?"+p,{cache:"no-store"});
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||"Failed to load orders");
+    state.orders=Array.isArray(data.orders)?data.orders:[];
+    render();
+    $("updated").textContent="Updated "+new Date().toLocaleTimeString();
+  }catch(e){
+    $("error").hidden=false;
+    $("error").textContent=e.message;
+  }
+}
+$("refresh").addEventListener("click",load);
+$("symbol").addEventListener("change",load);
+$("status").addEventListener("change",load);
+load();
+setInterval(load,5000);
+</script>
+</body>
+</html>
