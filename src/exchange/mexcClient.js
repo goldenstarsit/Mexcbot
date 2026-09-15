@@ -21,6 +21,15 @@ export default class MexcClient {
     }
   }
 
+  toJSON() {
+    return {
+      baseUrl: this.baseUrl,
+      recvWindow: this.recvWindow,
+      apiKey: this.apiKey ? "[REDACTED]" : null,
+      apiSecret: this.apiSecret ? "[REDACTED]" : null,
+    };
+  }
+
   buildQuery(params = {}) {
     return new URLSearchParams(
       Object.entries(params).filter(([, value]) => value !== undefined && value !== null),
