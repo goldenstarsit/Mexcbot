@@ -18,6 +18,7 @@ export default class TradingConfigApi {
     tpSlStatusDashboardService = null,
     capitalReservationDashboardService = null,
     errorRecoveryDashboardService = null,
+    completeMonitoringDashboardService = null,
     botStatusService = null,
     host = "127.0.0.1",
     port = 3000,
@@ -44,6 +45,8 @@ export default class TradingConfigApi {
       capitalReservationDashboardService;
     this.errorRecoveryDashboardService =
       errorRecoveryDashboardService;
+    this.completeMonitoringDashboardService =
+      completeMonitoringDashboardService;
     this.botStatusService = botStatusService;
     this.host = host;
     this.port = port;
@@ -255,6 +258,48 @@ export default class TradingConfigApi {
           "utf8",
         ),
       );
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/monitoring") {
+      this.sendHtml(
+        response,
+        fs.readFileSync(
+          path.join(PUBLIC_DIR, "monitoring.html"),
+          "utf8",
+        ),
+      );
+      return;
+    }
+
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/monitoring"
+    ) {
+      if (!this.completeMonitoringDashboardService) {
+        this.sendJson(response, 503, {
+          error:
+            "Complete monitoring dashboard service is not configured",
+        });
+        return;
+      }
+
+      try {
+        const status =
+          await this.completeMonitoringDashboardService.getStatus({
+            symbol: url.searchParams.get("symbol") || null,
+          });
+
+        this.sendJson(response, 200, status);
+      } catch (error) {
+        this.sendJson(response, 500, {
+          error:
+            error instanceof Error
+              ? error.message
+              : String(error),
+        });
+      }
+
       return;
     }
 

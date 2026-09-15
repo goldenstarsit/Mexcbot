@@ -35,6 +35,7 @@ import DcaProgressDashboardService from "./services/dcaProgressDashboardService.
 import TpSlStatusDashboardService from "./services/tpSlStatusDashboardService.js";
 import CapitalReservationDashboardService from "./services/capitalReservationDashboardService.js";
 import ErrorRecoveryDashboardService from "./services/errorRecoveryDashboardService.js";
+import CompleteMonitoringDashboardService from "./services/completeMonitoringDashboardService.js";
 import TradingCycleExecutionService from "./services/tradingCycleExecutionService.js";
 import CycleLifecycleService from "./services/cycleLifecycleService.js";
 import AllSymbolsStartupService from "./services/allSymbolsStartupService.js";
@@ -307,6 +308,17 @@ const botStatusService = new BotStatusService({
   },
 });
 
+const completeMonitoringDashboardService =
+  new CompleteMonitoringDashboardService({
+    botStatusService,
+    exchangeOrderRepository,
+    openPositionDashboardService,
+    dcaProgressDashboardService,
+    tpSlStatusDashboardService,
+    capitalReservationDashboardService,
+    errorRecoveryDashboardService,
+  });
+
 const tradingConfigApi =
   new TradingConfigApi({
     tradingConfigService,
@@ -317,6 +329,7 @@ const tradingConfigApi =
     tpSlStatusDashboardService,
     capitalReservationDashboardService,
     errorRecoveryDashboardService,
+    completeMonitoringDashboardService,
     botStatusService,
     host: "127.0.0.1",
     port: 3000,

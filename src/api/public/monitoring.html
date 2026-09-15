@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MEXCBOT | Monitoring</title>
+<style>
+:root{color-scheme:dark;--bg:#07101d;--panel:#101b2c;--panel2:#16243a;--text:#eef5ff;--muted:#91a5bf;--border:#253650;--good:#55d69a;--bad:#ff6578;--warn:#f3bd55}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+nav{position:sticky;top:0;z-index:5;background:#091423ee;border-bottom:1px solid var(--border);padding:11px;display:flex;gap:6px;overflow:auto}
+nav a{color:var(--muted);text-decoration:none;padding:8px 10px;border-radius:8px;white-space:nowrap}nav a.active,nav a:hover{background:var(--panel2);color:var(--text)}
+main{max-width:1280px;margin:auto;padding:16px}.head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-size:23px;margin:4px 0}.sub{font-size:12px;color:var(--muted)}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}select,button{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 11px}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin:16px 0}.stat,.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:13px}
+.label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.value{font-size:22px;font-weight:700;margin-top:4px}.good{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+.grid{display:grid;gap:12px}.panel h2{font-size:15px;margin:0 0 12px}.kv{display:grid;grid-template-columns:1fr 1fr;gap:8px}.item{background:var(--panel2);border-radius:9px;padding:10px}.item small{display:block;color:var(--muted);font-size:10px}.item b{display:block;margin-top:3px;word-break:break-word}
+.bar{height:7px;background:#23324a;border-radius:99px;overflow:hidden}.bar i{display:block;height:100%;background:var(--good)}
+.list{display:grid;gap:7px}.row{background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:10px}.empty{color:var(--muted)}
+@media(min-width:640px){main{padding:22px}.stats{grid-template-columns:repeat(4,1fr)}.grid{grid-template-columns:1fr 1fr}}
+@media(min-width:1000px){.stats{grid-template-columns:repeat(7,1fr)}.grid{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<nav>
+<a class="active" href="/monitoring">Monitoring</a><a href="/status">Runtime</a><a href="/orders">Orders</a><a href="/positions">Positions</a><a href="/dca">DCA</a><a href="/tp-sl">TP/SL</a><a href="/capital">Capital</a><a href="/errors">Errors</a><a href="/cycles">Cycles</a><a href="/config">Config</a>
+</nav>
+<main>
+<div class="head"><div><h1>Complete Bot Monitoring</h1><div class="sub" id="checked">Loading...</div></div>
+<div class="toolbar"><select id="symbol"><option value="">All symbols</option><option>BTCUSDT</option><option>ETHUSDT</option><option>BNBUSDT</option><option>SOLUSDT</option><option>TRXUSDT</option></select><button onclick="load()">Refresh</button></div></div>
+
+<section class="stats">
+<div class="stat"><div class="label">Open Cycles</div><div class="value" id="open">0</div></div>
+<div class="stat"><div class="label">Live Orders</div><div class="value" id="orders">0</div></div>
+<div class="stat"><div class="label">Positions</div><div class="value" id="positions">0</div></div>
+<div class="stat"><div class="label">Reserved USDT</div><div class="value" id="reserved">0</div></div>
+<div class="stat"><div class="label">Usable USDT</div><div class="value good" id="usable">0</div></div>
+<div class="stat"><div class="label">Errors</div><div class="value bad" id="errors">0</div></div>
+<div class="stat"><div class="label">Critical</div><div class="value bad" id="critical">0</div></div>
+</section>
+
+<div class="grid">
+<section class="panel"><h2>Runtime & Health</h2><div class="kv" id="runtime"></div></section>
+<section class="panel"><h2>Account & Capital</h2><div class="kv" id="capital"></div></section>
+<section class="panel"><h2>Recovery</h2><div class="kv" id="recovery"></div></section>
+</div>
+
+<section class="panel"><h2>Open Positions</h2><div class="list" id="positionList"></div></section>
+<section class="panel"><h2>Live Orders</h2><div class="list" id="orderList"></div></section>
+<section class="panel"><h2>DCA Progress</h2><div class="list" id="dcaList"></div></section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function kv(data){return Object.entries(data).map(([k,v])=>`<div class="item"><small>${esc(k)}</small><b>${esc(v)}</b></div>`).join("")}
+async function load(){
+const symbol=$("symbol").value;
+const r=await fetch("/api/monitoring"+(symbol?"?symbol="+encodeURIComponent(symbol):""));
+const d=await r.json();if(!r.ok)throw Error(d.error||"Monitoring request failed");
+const s=d.summary;
+$("open").textContent=s.openCycles;$("orders").textContent=s.liveOrders;$("positions").textContent=s.positions;
+$("reserved").textContent=s.reservedUsdt.toFixed(2);$("usable").textContent=s.usableUsdt.toFixed(2);
+$("errors").textContent=s.errors;$("critical").textContent=s.criticalErrors;
+$("checked").textContent="Updated "+new Date(d.checkedAt).toLocaleTimeString();
+
+const m=d.runtime.mexc||{},a=d.runtime.mexcAccount||{};
+$("runtime").innerHTML=kv({
+Environment:d.runtime.environment,
+Trading:d.runtime.liveTrading?"ENABLED":"DISABLED",
+Database:d.runtime.database.connected?"Connected":"Disconnected",
+MEXC:m.connected?"Connected":"Offline",
+Latency:m.latencyMs!=null?m.latencyMs+" ms":"—",
+SQLite:d.runtime.database.sqliteVersion,
+Symbols:(d.runtime.runtimeConfig.symbols||[]).join(", ")
+});
+$("capital").innerHTML=kv({
+"Free USDT":a.usdt?.free??"0",
+"Locked USDT":a.usdt?.locked??"0",
+"Reserved USDT":s.reservedUsdt.toFixed(2),
+"Usable USDT":s.usableUsdt.toFixed(2),
+"Trading Ready":a.tradingReady?"YES":"NO",
+"Active Reservations":d.capital.reservation?.activeCount??0,
+"Pending Reservations":d.capital.reservation?.pendingCount??0
+});
+$("recovery").innerHTML=kv({
+"Errors":d.errors.summary.errorCount,
+"Critical":d.errors.summary.criticalCount,
+"Recoverable":d.errors.summary.recoverableOrders,
+"Fill Failures":d.errors.summary.fillProcessingFailed,
+"Recovery Exhausted":d.errors.summary.recoveryExhausted
+});
+
+$("positionList").innerHTML=d.positions.length?d.positions.map(x=>`<div class="row"><b>${esc(x.symbol)} · Cycle ${esc(x.cycleNumber)}</b><div class="sub">Qty ${x.position.totalQuantity} · Avg ${x.position.averagePrice?.toFixed?.(6)??x.position.averagePrice} · TP ${x.takeProfit.price?.toFixed?.(6)??"—"} · SL ${x.stopLoss.price?.toFixed?.(6)??"—"}</div></div>`).join(""):'<div class="empty">No open positions.</div>';
+
+$("orderList").innerHTML=d.liveOrders.orders.length?d.liveOrders.orders.map(x=>`<div class="row"><b>${esc(x.symbol)} · ${esc(x.side)} · ${esc(x.status)}</b><div class="sub">#${x.id} · ${esc(x.order_type)} · Qty ${esc(x.quantity)} · Price ${esc(x.price)}</div></div>`).join(""):'<div class="empty">No live orders.</div>';
+
+$("dcaList").innerHTML=d.dca.length?d.dca.map(x=>`<div class="row"><b>${esc(x.symbol)} · Cycle ${esc(x.cycleNumber)}</b><div class="sub">${x.completedLevels}/${x.totalLevels} completed · ${Number(x.progressPercent).toFixed(1)}%</div><div class="bar"><i style="width:${Math.min(100,Math.max(0,Number(x.progressPercent)||0))}%"></i></div></div>`).join(""):'<div class="empty">No DCA progress.</div>';
+}
+load().catch(e=>$("checked").textContent=e.message);
+$("symbol").addEventListener("change",()=>load().catch(()=>{}));
+setInterval(()=>load().catch(()=>{}),5000);
+</script>
+</body>
+</html>
