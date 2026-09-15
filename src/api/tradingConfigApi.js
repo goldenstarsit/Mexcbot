@@ -17,6 +17,7 @@ export default class TradingConfigApi {
     dcaProgressDashboardService = null,
     tpSlStatusDashboardService = null,
     capitalReservationDashboardService = null,
+    errorRecoveryDashboardService = null,
     botStatusService = null,
     host = "127.0.0.1",
     port = 3000,
@@ -41,6 +42,8 @@ export default class TradingConfigApi {
     this.tpSlStatusDashboardService = tpSlStatusDashboardService;
     this.capitalReservationDashboardService =
       capitalReservationDashboardService;
+    this.errorRecoveryDashboardService =
+      errorRecoveryDashboardService;
     this.botStatusService = botStatusService;
     this.host = host;
     this.port = port;
@@ -252,6 +255,48 @@ export default class TradingConfigApi {
           "utf8",
         ),
       );
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/errors") {
+      this.sendHtml(
+        response,
+        fs.readFileSync(
+          path.join(PUBLIC_DIR, "errors.html"),
+          "utf8",
+        ),
+      );
+      return;
+    }
+
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/errors"
+    ) {
+      if (!this.errorRecoveryDashboardService) {
+        this.sendJson(response, 503, {
+          error:
+            "Error recovery dashboard service is not configured",
+        });
+        return;
+      }
+
+      try {
+        const status =
+          this.errorRecoveryDashboardService.getStatus({
+            symbol: url.searchParams.get("symbol") || null,
+          });
+
+        this.sendJson(response, 200, status);
+      } catch (error) {
+        this.sendJson(response, 500, {
+          error:
+            error instanceof Error
+              ? error.message
+              : String(error),
+        });
+      }
+
       return;
     }
 

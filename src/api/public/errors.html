@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error & Recovery | MEXCBOT</title>
+<style>
+:root{color-scheme:dark;--bg:#08111f;--panel:#101b2d;--panel2:#152238;--text:#edf4ff;--muted:#8fa3bd;--border:#24344d;--danger:#ff6678;--warn:#f4bd4f}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+nav{position:sticky;top:0;z-index:5;background:#0a1424ee;border-bottom:1px solid var(--border);padding:12px;display:flex;gap:7px;overflow:auto}
+nav a{color:var(--muted);text-decoration:none;padding:8px 10px;border-radius:8px;white-space:nowrap}nav a.active,nav a:hover{background:var(--panel2);color:var(--text)}
+main{max-width:1200px;margin:auto;padding:16px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+h1{font-size:22px;margin:4px 0}.sub{color:var(--muted);font-size:12px}button,select{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:9px 11px;border-radius:8px}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:16px 0}.stat,.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px}
+.label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em}.value{font-size:23px;font-weight:700;margin-top:5px}.danger{color:var(--danger)}.warn{color:var(--warn)}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.panel{margin-bottom:12px}.panel h2{font-size:15px;margin:0 0 12px}
+.error{border:1px solid #4a2730;background:#1b1219;border-radius:10px;padding:11px;margin:8px 0}.error strong{color:var(--danger)}
+.meta{color:var(--muted);font-size:11px;margin-top:5px;word-break:break-word}.queue{display:grid;gap:8px}.row{background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:10px}.empty{color:var(--muted);padding:12px 0}
+@media(min-width:640px){main{padding:22px}.stats{grid-template-columns:repeat(4,1fr)}}
+@media(min-width:900px){.stats{grid-template-columns:repeat(5,1fr)}.error{display:grid;grid-template-columns:160px 1fr 160px;gap:12px;align-items:center}}
+</style>
+</head>
+<body>
+<nav>
+<a href="/status">Runtime</a><a href="/orders">Orders</a><a href="/positions">Positions</a><a href="/dca">DCA</a><a href="/tp-sl">TP/SL</a><a href="/capital">Capital</a><a class="active" href="/errors">Errors</a><a href="/cycles">Cycles</a><a href="/config">Config</a>
+</nav>
+<main>
+<div class="top"><div><h1>Error & Recovery</h1><div class="sub" id="checked">Loading...</div></div>
+<div class="toolbar"><select id="symbol"><option value="">All symbols</option><option>BTCUSDT</option><option>ETHUSDT</option><option>BNBUSDT</option><option>SOLUSDT</option><option>TRXUSDT</option></select><button onclick="load()">Refresh</button></div></div>
+<section class="stats">
+<div class="stat"><div class="label">Errors</div><div class="value danger" id="errors">0</div></div>
+<div class="stat"><div class="label">Critical</div><div class="value danger" id="critical">0</div></div>
+<div class="stat"><div class="label">Recoverable</div><div class="value" id="recoverable">0</div></div>
+<div class="stat"><div class="label">Fill Failures</div><div class="value warn" id="fills">0</div></div>
+<div class="stat"><div class="label">Recovery Exhausted</div><div class="value danger" id="exhausted">0</div></div>
+</section>
+<section class="panel"><h2>Recovery Queue</h2><div class="queue" id="recoveries"><div class="empty">Loading...</div></div></section>
+<section class="panel"><h2>Fill Processing Queue</h2><div class="queue" id="fillQueue"><div class="empty">Loading...</div></div></section>
+<section class="panel"><h2>Recent Errors</h2><div id="errorList"><div class="empty">Loading...</div></div></section>
+</main>
+<script>
+async function load(){
+const symbol=document.getElementById("symbol").value;
+const r=await fetch("/api/errors"+(symbol?"?symbol="+encodeURIComponent(symbol):""));
+const d=await r.json();if(!r.ok)throw new Error(d.error||"Failed to load");
+const s=d.summary;
+for(const [id,v] of Object.entries({errors:s.errorCount,critical:s.criticalCount,recoverable:s.recoverableOrders,fills:s.fillProcessingFailed,exhausted:s.recoveryExhausted}))document.getElementById(id).textContent=v;
+document.getElementById("checked").textContent="Checked "+new Date(d.checkedAt).toLocaleTimeString();
+document.getElementById("recoveries").innerHTML=d.queues.recoverable.length?d.queues.recoverable.map(x=>`<div class="row"><b>#${x.id} ${x.symbol}</b> · ${x.side} · ${x.status}<div class="meta">Recovery: ${x.recoveryStatus} · Attempts: ${x.attempts} · ${x.error||"No error"}</div></div>`).join(""):'<div class="empty">No recoverable orders.</div>';
+document.getElementById("fillQueue").innerHTML=d.queues.fillProcessing.length?d.queues.fillProcessing.map(x=>`<div class="row"><b>#${x.id} ${x.symbol}</b> · ${x.side}<div class="meta">Attempts: ${x.attempts} · ${x.error||"Fill processing failed"}</div></div>`).join(""):'<div class="empty">No failed fill-processing orders.</div>';
+document.getElementById("errorList").innerHTML=d.errors.length?d.errors.slice(0,50).map(x=>`<div class="error"><strong>${x.severity}</strong><div>${x.source} · ${x.symbol} · Order #${x.orderId}</div><div>${x.message}</div><div class="meta">Attempts: ${x.attempts} · ${x.updatedAt||x.createdAt||""}</div></div>`).join(""):'<div class="empty">No current errors.</div>';
+}
+load().catch(e=>{document.getElementById("checked").textContent=e.message});
+document.getElementById("symbol").addEventListener("change",()=>load().catch(()=>{}));
+setInterval(()=>load().catch(()=>{}),5000);
+</script>
+</body>
+</html>
