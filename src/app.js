@@ -293,12 +293,18 @@ const exchangeReconciliationRunner =
     intervalMs: 60000,
   });
 
+const runtimeState = {
+  liveTradingEnabled: false,
+  shuttingDown: false,
+};
+
 const botStatusService = new BotStatusService({
   tradingConfigService,
   tradingCycleRepository,
   mexcHealthService,
   mexcAccountHealthService,
   db,
+  getLiveTradingState: () => runtimeState.liveTradingEnabled,
   runners: {
     orderPolling: pollingRunner,
     reconciliation: exchangeReconciliationRunner,
@@ -375,6 +381,8 @@ if (!hasApiCredentials) {
     accountReadiness.canTrade === true &&
     accountReadiness.tradingReady === true;
 
+  runtimeState.liveTradingEnabled = liveTradingEnabled;
+
   if (!liveTradingEnabled) {
     console.log("Live trading: DISABLED");
     console.log(
@@ -450,11 +458,26 @@ if (liveTradingEnabled) {
     console.log("[OrderIntentRecovery] Runner started: 60000ms");
     console.log("[OrphanRecovery] Runner started: 60000ms");
   } catch (error) {
+    liveTradingEnabled = false;
+    runtimeState.liveTradingEnabled = false;
+
     console.error("[Startup] Failed:", error.message);
+
+    if (process.env.NODE_ENV === "production") {
+      await shutdown("STARTUP_FAILURE", 1);
+    }
   }
 }
 
-async function shutdown(signal) {
+async function shutdown(signal, exitCode = 0) {
+  if (runtimeState.shuttingDown) {
+    return;
+  }
+
+  runtimeState.shuttingDown = true;
+  liveTradingEnabled = false;
+  runtimeState.liveTradingEnabled = false;
+
   console.log(`[Shutdown] ${signal}`);
 
   pollingRunner.stop();
@@ -476,13 +499,23 @@ async function shutdown(signal) {
     db.close();
   }
 
-  process.exit(0);
+  process.exit(exitCode);
 }
 
 process.on("SIGINT", () => {
-  void shutdown("SIGINT");
+  void shutdown("SIGINT", 0);
 });
 
 process.on("SIGTERM", () => {
-  void shutdown("SIGTERM");
+  void shutdown("SIGTERM", 0);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[Process] Unhandled rejection:", reason);
+  void shutdown("UNHANDLED_REJECTION", 1);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("[Process] Uncaught exception:", error);
+  void shutdown("UNCAUGHT_EXCEPTION", 1);
 });

@@ -6,6 +6,7 @@ export default class BotStatusService {
     mexcAccountHealthService,
     db,
     runners = {},
+    getLiveTradingState = null,
   }) {
     if (!tradingConfigService) {
       throw new Error("Trading config service is required");
@@ -33,6 +34,7 @@ export default class BotStatusService {
     this.tradingCycleRepository = tradingCycleRepository;
     this.db = db;
     this.runners = runners;
+    this.getLiveTradingState = getLiveTradingState;
     this.startedAt = new Date().toISOString();
   }
 
@@ -74,10 +76,22 @@ export default class BotStatusService {
     const mexcAccount =
       await this.mexcAccountHealthService.check();
 
+    const accountReady =
+      mexc.status === "OK" &&
+      mexcAccount.status === "OK" &&
+      mexcAccount.authenticated === true &&
+      mexcAccount.canTrade === true &&
+      mexcAccount.tradingReady === true;
+
+    const liveTrading =
+      typeof this.getLiveTradingState === "function"
+        ? Boolean(this.getLiveTradingState())
+        : hasApiCredentials && accountReady;
+
     return {
       status: "OK",
       environment: process.env.NODE_ENV ?? "development",
-      liveTrading: hasApiCredentials,
+      liveTrading,
       database: {
         connected: this.db.open,
         sqliteVersion: sqlite,
